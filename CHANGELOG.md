@@ -5,6 +5,10 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.1.0] - 2026-10-04
+
+Primeira versão.
+
 ### Adicionado
 
 - Configuração (`Configuracao`, `Configuracao::deArray()`), enums, hierarquia de exceções e camada HTTP sobre PSR-18,
@@ -33,3 +37,6 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
   layout aprovados). A alternativa oficial (DCe + DACE) está disponível.
 - **Template de postagem:** o campo cidade/UF do destinatário foi movido de x=200 para x=212 para não encostar no CEP
   em 300 dpi (conferido no Labelary).
+
+[Não lançado]: https://github.com/marcelofecchio/correios-api/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/marcelofecchio/correios-api/releases/tag/v0.1.0
