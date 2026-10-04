@@ -34,8 +34,7 @@
 | `DanfeSimplificado.php` | Classe estática: recebe os dados do pedido, monta o mapa de substituições e devolve o ZPL. |
 | `template_danfe_simplificado.zpl` | Template com os marcadores (palavras soltas, sem delimitador). Começa com BOM (`EF BB BF`). |
 | `exemplo_etiqueta_danfe.zpl` | Etiqueta real gerada pelo sistema antigo. |
-| `nfe-venda-pf.xml` | XML de uma NF-e autorizada de **venda** para pessoa física — a mesma nota da etiqueta de exemplo. Os dados foram trocados por **fictícios** em 04/10/2026 (ver seção 7.5). |
-| `nfe-venda-pj.xml` | XML de uma NF-e autorizada de **venda** para pessoa jurídica, com 10 itens, com os **dados trocados por fictícios** (não é do sistema antigo). Ver seção 7.5. |
+| `nfe-venda-pf.xml` | XML de uma NF-e autorizada de **venda** para pessoa física — a mesma nota da etiqueta de exemplo. Os dados, inclusive o produto, foram trocados por **fictícios** em 04/10/2026 (ver seção 7.5). |
 
 ## 2. Como o sistema antigo funcionava
 
@@ -303,12 +302,12 @@ Os limites são estimativas para a largura útil de 740 pontos; ajuste após tes
 
 ### 7.5 Leitura do XML da NF-e — ✔ testado com dois XML
 
-A pasta de exemplos traz dois XML **autorizados** (`nfeProc` versão 4.00), em uma única linha, com namespace padrão e assinatura. Os dois são notas reais com os **dados trocados por fictícios** (o de pessoa jurídica em 04/10/2026, antes da implementação; o de pessoa física também em 04/10/2026, antes de o repositório ser tornado público) (emitente, destinatário, transportadora, responsável técnico, número, chave, protocolo e assinatura — a assinatura deixa de ser válida, mas a chave e o dígito verificador foram recalculados):
+A função abaixo foi testada com dois XML **autorizados** (`nfeProc` versão 4.00), em uma única linha, com namespace padrão e assinatura. Os dois são notas reais com os **dados trocados por fictícios** (emitente, destinatário, transportadora, responsável técnico, produtos, valores, número, chave, protocolo e assinatura — a assinatura deixa de ser válida, mas a chave e o dígito verificador foram recalculados). Só o de pessoa física está na pasta de exemplos; o de pessoa jurídica foi **removido** em 04/10/2026, antes de o repositório ser tornado público, e o componente usa como fixture (`tests/Fixtures/xml/nfe-venda-pj.xml`) uma versão sintética dele, com 2 itens fictícios:
 
 | Arquivo | Caso | Destinatário | Itens | Particularidades |
 |---|---|---|:-:|---|
 | `nfe-venda-pf.xml` | **Venda** a consumidor final de outro estado — o caso típico | Pessoa **física** (CPF, sem IE, `indIEDest = 9`) | 1 | É a nota da etiqueta antiga `exemplo_etiqueta_danfe.zpl` (mesma chave) |
-| `nfe-venda-pj.xml` | **Venda** entre empresas de estados diferentes (RS → SP) | Pessoa **jurídica** com IE (`indIEDest = 1`) | 10 | Dados fictícios; tem transportadora, duplicatas e informações adicionais |
+| `nfe-venda-pj.xml` | **Venda** entre empresas de estados diferentes (RS → SP) | Pessoa **jurídica** com IE (`indIEDest = 1`) | 10 (2 na fixture) | Fora da pasta de exemplos; tem transportadora, duplicata e informações adicionais |
 
 A função abaixo foi executada em PHP 8.4 com os dois arquivos e preencheu os 17 marcadores de dados do template. Ela usa `digitoChave()` da seção 4 e só as extensões `dom` e `libxml`. **Não lê itens nem valores** (regra 7 da seção 7.4):
 
@@ -408,7 +407,7 @@ Na versão final do componente, troque `InvalidArgumentException` por `ErroValid
 | Dígito da chave | Chave real da etiqueta de exemplo → dígito `1`; chave com dígito trocado → `ErroValidacao` |
 | Decomposição da chave | Série `001` e número `000021486` extraídos das posições corretas |
 | Chave formatada | 11 grupos de 4 dígitos separados por espaço |
-| XML autorizado | `deXml()` preenche todos os campos. Venda para pessoa física: `nfe-venda-pf.xml`; venda para pessoa jurídica: `nfe-venda-pj.xml`. Copie para as fixtures; no de pessoa física, **troque os dados reais por fictícios** (o de pessoa jurídica já é fictício) |
+| XML autorizado | `deXml()` preenche todos os campos. Venda para pessoa física: `nfe-venda-pf.xml` (já fictício; copie para as fixtures); venda para pessoa jurídica: monte uma fixture fictícia com destinatário CNPJ e IE (o XML de exemplo foi removido) |
 | Sem itens e valores | O ZPL gerado não contém descrição de produto, quantidade nem valor |
 | XML não autorizado ou sem `protNFe` | `ErroValidacao` |
 | Sem código de envio | O parcial não é incluído; o ZPL não contém código de barras de rastreamento nem marcador sobrando |
@@ -427,7 +426,7 @@ Dados fictícios usados na verificação: emitente "Loja Teste Homologação Com
 - **Conformidade legal:** os requisitos da seção 5 vêm de fonte secundária; a Nota Técnica 2020.004 oficial não foi lida. Posição obrigatória dos campos, tamanhos mínimos e regras para contingência devem ser conferidos nela.
 - **Leitura dos códigos de barras** por leitor físico e **impressão** em impressora térmica.
 - ~~Template de 300 dpi~~ — ✔ renderizado no Labelary em 04/10/2026 (12 dpmm, 4 × 6 pol), com escala 1,5 (`^BY2` → `^BY3`). A chave de acesso em Code 128 coube na largura de 1200 pontos. Continua sem teste a impressão física.
-- **Leitura do XML da NF-e** — testada com a venda para pessoa física (`nfe-venda-pf.xml`, hoje com dados fictícios) e a venda para pessoa jurídica (`nfe-venda-pj.xml`, dados fictícios, em 04/10/2026), ambas em emissão normal. Na análise original também foi testada uma devolução para pessoa jurídica, cujo XML não está no projeto. Não foram testados: nota de entrada (`tpNF = 0`), emissão em contingência e destinatário do exterior.
+- **Leitura do XML da NF-e** — testada com a venda para pessoa física (`nfe-venda-pf.xml`, hoje com dados fictícios) e a venda para pessoa jurídica (dados fictícios, em 04/10/2026; o XML saiu da pasta de exemplos e a fixture do componente é uma versão sintética com 2 itens), ambas em emissão normal. Na análise original também foi testada uma devolução para pessoa jurídica, cujo XML não está no projeto. Não foram testados: nota de entrada (`tpNF = 0`), emissão em contingência e destinatário do exterior.
 - ~~Renderização do template sem itens e valores~~ — ✔ renderizado no Labelary em 04/10/2026, em 203 e 300 dpi, com o XML de venda para pessoa física **anonimizado** (dados fictícios) e com o código de envio. Todos os blocos ficaram dentro da etiqueta, sem sobreposição.
 - **Aceitação em fiscalização ou pelos Correios** de uma etiqueta gerada por este template.
 
