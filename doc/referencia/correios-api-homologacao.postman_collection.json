@@ -1,0 +1,4172 @@
+{
+  "info": {
+    "_postman_id": "de9c0a7b-56fc-4a78-8252-7e1dc268eada",
+    "name": "Correios API - Homologação (testes manuais)",
+    "description": "Coleção para testes manuais das APIs dos Correios no ambiente de **homologação** (host apihom.correios.com.br).\n\n**Como usar**\n1. Importe a coleção e execute as pastas **na ordem numérica** (01 → 11). Cada etapa grava nas variáveis da coleção os dados que as seguintes usam (token, DR, endereços, ids, recibos).\n2. Comece por **1.1 Gerar token** — o script de teste grava `token`, `tokenExpiraEm`, `dr` e `contrato`. Com `autoRenovarToken = true`, o token é renovado sozinho quando faltar menos de 5 minutos.\n3. Autenticação: todas as requisições herdam `Bearer {{token}}` da coleção; só a pasta 01 usa Basic (`usuario` = CNPJ em homologação + `codigoAcesso`).\n4. Veja o **Console** do Postman: os scripts registram preços, prazos, ids, recibos e mensagens de erro.\n\n**Serviços testados:** 03220 SEDEX CONTRATO AG e 03298 PAC CONTRATO AG (postagem comum); 03247 SEDEX REVERSO e 03301 PAC REVERSO (logística reversa).\n\n**Dados fictícios:** loja em Av. Paulista 1000 (CEP 01310-100), cliente Maria Aparecida Souza na Praça da Sé 100 (CEP 01001-000), pacote 30×20×10 cm, 800 g, valor declarado R$ 250,00. As requisições 3.1 e 3.2 corrigem logradouro/bairro/cidade/UF com os dados oficiais do CEP.\n\n**Atenção:** a coleção contém credenciais de homologação — não compartilhe o arquivo. Documentação de apoio: arquivos correios-00 a correios-11 da pasta doc/referencia/.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Renovação automática do token: se faltar token ou restarem < 5 min, gera um novo antes da requisição.",
+          "const url = pm.request.url.toString();",
+          "const ehToken = url.includes('/token/v1/');",
+          "const auto = pm.collectionVariables.get('autoRenovarToken') === 'true';",
+          "const exp = pm.collectionVariables.get('tokenExpiraEm');",
+          "const tok = pm.collectionVariables.get('token');",
+          "const venceu = !tok || !exp || (new Date(exp).getTime() - Date.now() < 5 * 60 * 1000);",
+          "if (!ehToken && auto && venceu) {",
+          "  const cred = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(pm.collectionVariables.get('usuario') + ':' + pm.collectionVariables.get('codigoAcesso')));",
+          "  pm.sendRequest({",
+          "    url: pm.collectionVariables.get('baseUrl') + '/token/v1/autentica/cartaopostagem',",
+          "    method: 'POST',",
+          "    header: { 'Authorization': 'Basic ' + cred, 'Content-Type': 'application/json', 'Accept': 'application/json' },",
+          "    body: { mode: 'raw', raw: JSON.stringify({ numero: pm.collectionVariables.get('cartaoPostagem') }) }",
+          "  }, (err, res) => {",
+          "    if (err || ![200, 201].includes(res.code)) { console.log('Falha ao renovar token:', err || res.text()); return; }",
+          "    const j = res.json();",
+          "    pm.collectionVariables.set('token', j.token);",
+          "    pm.collectionVariables.set('tokenExpiraEm', j.expiraEm);",
+          "    if (j.cartaoPostagem && j.cartaoPostagem.dr != null) pm.collectionVariables.set('dr', String(j.cartaoPostagem.dr));",
+          "    if (pm.environment && pm.environment.name) pm.environment.set('token', j.token);",
+          "    console.log('Token renovado automaticamente. Expira em', j.expiraEm);",
+          "  });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Log padronizado de erros dos Correios (MessageResponse.msgs)",
+          "if (pm.response.code >= 400) {",
+          "  // Dois formatos de erro: MessageResponse { msgs: [...] } e { mensagem: '...' } (ex.: PPN-288 no download do rótulo)",
+          "  try { const j = pm.response.json(); const m = j.msgs ? j.msgs.join(' | ') : (j.mensagem || ''); if (m) console.log(`[${pm.info.requestName}] HTTP ${pm.response.code}:`, m); } catch (e) {}",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://apihom.correios.com.br",
+      "type": "string",
+      "description": "Host de homologação. Produção: https://api.correios.com.br"
+    },
+    {
+      "key": "usuario",
+      "value": "11222333000181",
+      "type": "string",
+      "description": "Usuário do Basic Auth. Homologação = CNPJ (somente dígitos)"
+    },
+    {
+      "key": "codigoAcesso",
+      "value": "",
+      "type": "string",
+      "description": "Código de acesso gerado no portal cwshom"
+    },
+    {
+      "key": "cnpj",
+      "value": "11222333000181",
+      "type": "string",
+      "description": "CNPJ do contrato"
+    },
+    {
+      "key": "cartaoPostagem",
+      "value": "0012345678",
+      "type": "string",
+      "description": "Cartão de postagem"
+    },
+    {
+      "key": "contrato",
+      "value": "9912345678",
+      "type": "string",
+      "description": "Contrato (atualizado pelo token)"
+    },
+    {
+      "key": "dr",
+      "value": "",
+      "type": "string",
+      "description": "DR do contrato — preenchida automaticamente pelo token"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Preenchido pelo script da requisição 1.1"
+    },
+    {
+      "key": "tokenEmissao",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "tokenExpiraEm",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "autoRenovarToken",
+      "value": "true",
+      "type": "string",
+      "description": "true = renova o token automaticamente antes das requisições"
+    },
+    {
+      "key": "servicoSedex",
+      "value": "03220",
+      "type": "string",
+      "description": "SEDEX CONTRATO AG"
+    },
+    {
+      "key": "servicoPac",
+      "value": "03298",
+      "type": "string",
+      "description": "PAC CONTRATO AG"
+    },
+    {
+      "key": "servicoSedexReverso",
+      "value": "03247",
+      "type": "string",
+      "description": "SEDEX REVERSO"
+    },
+    {
+      "key": "servicoPacReverso",
+      "value": "03301",
+      "type": "string",
+      "description": "PAC REVERSO"
+    },
+    {
+      "key": "adicionalVdSedex",
+      "value": "019",
+      "type": "string",
+      "description": "Valor declarado - SEDEX"
+    },
+    {
+      "key": "adicionalReverso",
+      "value": "016",
+      "type": "string",
+      "description": "016 - LOGISTICA REV SIMULTANEA VOLTA (LRSV): obrigatório no SEDEX REVERSO 03247, opcional no PAC REVERSO 03301"
+    },
+    {
+      "key": "adicionalVdPac",
+      "value": "064",
+      "type": "string",
+      "description": "Valor declarado - PAC"
+    },
+    {
+      "key": "adicionalAr",
+      "value": "001",
+      "type": "string",
+      "description": "AR Convencional (aviso de recebimento)"
+    },
+    {
+      "key": "pesoGramas",
+      "value": "800",
+      "type": "string",
+      "description": "Peso em gramas"
+    },
+    {
+      "key": "alturaCm",
+      "value": "10",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "larguraCm",
+      "value": "20",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "comprimentoCm",
+      "value": "30",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "valorDeclarado",
+      "value": "250.00",
+      "type": "string",
+      "description": "Valor declarado / valor do item (ponto decimal)"
+    },
+    {
+      "key": "conteudoItem",
+      "value": "Teclado para notebook",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "lojaNome",
+      "value": "Loja Teste Homologacao Ltda",
+      "type": "string",
+      "description": "Loja — remetente na postagem comum, destinatário na reversa"
+    },
+    {
+      "key": "lojaDdd",
+      "value": "11",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "lojaCelular",
+      "value": "987654321",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "lojaEmail",
+      "value": "loja.teste@exemplo.com.br",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "remetenteCep",
+      "value": "01310100",
+      "type": "string",
+      "description": "Av. Paulista — São Paulo/SP (validado em 3.1)"
+    },
+    {
+      "key": "remetenteLogradouro",
+      "value": "Avenida Paulista",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "remetenteNumero",
+      "value": "1000",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "remetenteComplemento",
+      "value": "Sala 101",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "remetenteBairro",
+      "value": "Bela Vista",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "remetenteCidade",
+      "value": "São Paulo",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "remetenteUf",
+      "value": "SP",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "clienteNome",
+      "value": "Maria Aparecida Souza",
+      "type": "string",
+      "description": "Cliente fictícia — destinatária na postagem comum, remetente na reversa"
+    },
+    {
+      "key": "clienteCpf",
+      "value": "52998224725",
+      "type": "string",
+      "description": "CPF fictício com dígitos verificadores válidos"
+    },
+    {
+      "key": "clienteDdd",
+      "value": "11",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "clienteCelular",
+      "value": "912345678",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "clienteEmail",
+      "value": "maria.souza.teste@exemplo.com.br",
+      "type": "string",
+      "description": "Obrigatório na reversa"
+    },
+    {
+      "key": "destinatarioCep",
+      "value": "01001000",
+      "type": "string",
+      "description": "Praça da Sé — São Paulo/SP (validado em 3.2)"
+    },
+    {
+      "key": "destinatarioLogradouro",
+      "value": "Praça da Sé",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "destinatarioNumero",
+      "value": "100",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "destinatarioComplemento",
+      "value": "Apto 12",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "destinatarioBairro",
+      "value": "Sé",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "destinatarioCidade",
+      "value": "São Paulo",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "destinatarioUf",
+      "value": "SP",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "prazoPostagem",
+      "value": "",
+      "type": "string",
+      "description": "dd/MM/yyyy — calculado (hoje + 14)"
+    },
+    {
+      "key": "dataValidadeLogReversa",
+      "value": "",
+      "type": "string",
+      "description": "dd/MM/yyyy — calculado (hoje + 10)"
+    },
+    {
+      "key": "dataHojeHifen",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "prazoDiasUltimaConsulta",
+      "value": "3",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemSedex",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoSedex",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemPac",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoPac",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemSedexReverso",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoSedexReverso",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemPacReverso",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoPacReverso",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "reciboPrePostagemAssincrona",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemAssincrona",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoAssincrona",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "reciboCancelamento",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "reciboRotulo",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemDce",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoDce",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemChaveFiscal",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoChaveFiscal",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "chaveDocumentoFiscal",
+      "value": "35261011222333000181550010000012341000012345",
+      "type": "string",
+      "description": "Chave FICTÍCIA de 44 dígitos — troque por uma chave real de NF-e ou DCe"
+    },
+    {
+      "key": "idPrePostagemCancelarPorId",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoCancelarPorId",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemCancelarPorObjeto",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoCancelarPorObjeto",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "reciboCancelamentoSincrono",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idPrePostagemSedexAr",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "codigoObjetoSedexAr",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "statusPrePostagemAssincrona",
+      "value": "",
+      "type": "string",
+      "description": "statusAtual da pré-postagem assíncrona (7 = PENDENTE)"
+    },
+    {
+      "key": "idsPrePostagemRotulo",
+      "value": "[]",
+      "type": "string",
+      "description": "Lista JSON montada pelo pre-request de 8.1"
+    },
+    {
+      "key": "codigoObjetoExemplo",
+      "value": "DG049186226BR",
+      "type": "string",
+      "description": "Objeto de exemplo do manual V2.4"
+    },
+    {
+      "key": "idServicoWebhook",
+      "value": "wh-rastro",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idAssinatura",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "idEndereco",
+      "value": "",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "key": "webhookUrl",
+      "value": "https://webhook.site/SUBSTITUA-PELO-SEU-ID",
+      "type": "string",
+      "description": "Troque por uma URL HTTPS sua antes de 11.4"
+    },
+    {
+      "key": "webhookSecret",
+      "value": "segredo-teste-homologacao-123",
+      "type": "string",
+      "description": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Autenticação (Token)",
+      "description": "API Token — arquivo correios-01-token-api.md",
+      "item": [
+        {
+          "name": "1.1 Gerar token por cartão de postagem",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/token/v1/autentica/cartaopostagem",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "token",
+                "v1",
+                "autentica",
+                "cartaopostagem"
+              ]
+            },
+            "description": "Gera o token Bearer usado em todas as demais requisições.\n\n**Homologação:** usuário do Basic = CNPJ (somente dígitos); senha = código de acesso gerado no portal cwshom.\n\nO script de teste grava `token`, `tokenExpiraEm`, `dr` e `contrato` nas variáveis da coleção (e no ambiente, se houver um selecionado).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numero\": \"{{cartaoPostagem}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{usuario}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{codigoAcesso}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP [200, 201]', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const j = pm.response.json();",
+                  "pm.test('Token recebido', () => pm.expect(j.token).to.be.a('string').and.not.empty);",
+                  "pm.test('Ambiente = HOMOLOGACAO', () => pm.expect(j.ambiente).to.eql('HOMOLOGACAO'));",
+                  "// Alimenta as variáveis da coleção (e do ambiente, se houver um selecionado)",
+                  "const setVar = (k, v) => {",
+                  "  if (v === undefined || v === null) return;",
+                  "  pm.collectionVariables.set(k, String(v));",
+                  "  if (pm.environment && pm.environment.name) pm.environment.set(k, String(v));",
+                  "};",
+                  "setVar('token', j.token);",
+                  "setVar('tokenEmissao', j.emissao);",
+                  "setVar('tokenExpiraEm', j.expiraEm);",
+                  "if (j.cartaoPostagem) {",
+                  "  setVar('dr', j.cartaoPostagem.dr);",
+                  "  setVar('contrato', j.cartaoPostagem.contrato);",
+                  "  console.log('APIs liberadas no cartão:', JSON.stringify(j.cartaoPostagem.api));",
+                  "}",
+                  "console.log('Token válido até', j.expiraEm, '| APIs do usuário:', JSON.stringify(j.api));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Gerar token por contrato (alternativo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/token/v1/autentica/contrato",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "token",
+                "v1",
+                "autentica",
+                "contrato"
+              ]
+            },
+            "description": "Alternativa: autorização pelo número do contrato. Também alimenta a variável `token`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numero\": \"{{contrato}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{usuario}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{codigoAcesso}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP [200, 201]', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const j = pm.response.json();",
+                  "pm.test('Token recebido', () => pm.expect(j.token).to.be.a('string').and.not.empty);",
+                  "pm.test('Ambiente = HOMOLOGACAO', () => pm.expect(j.ambiente).to.eql('HOMOLOGACAO'));",
+                  "// Alimenta as variáveis da coleção (e do ambiente, se houver um selecionado)",
+                  "const setVar = (k, v) => {",
+                  "  if (v === undefined || v === null) return;",
+                  "  pm.collectionVariables.set(k, String(v));",
+                  "  if (pm.environment && pm.environment.name) pm.environment.set(k, String(v));",
+                  "};",
+                  "setVar('token', j.token);",
+                  "setVar('tokenEmissao', j.emissao);",
+                  "setVar('tokenExpiraEm', j.expiraEm);",
+                  "if (j.cartaoPostagem) {",
+                  "  setVar('dr', j.cartaoPostagem.dr);",
+                  "  setVar('contrato', j.cartaoPostagem.contrato);",
+                  "  console.log('APIs liberadas no cartão:', JSON.stringify(j.cartaoPostagem.api));",
+                  "}",
+                  "console.log('Token válido até', j.expiraEm, '| APIs do usuário:', JSON.stringify(j.api));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Meu Contrato (serviços do cartão)",
+      "description": "Arquivo correios-02-meucontrato-servicos-cartao-api.md",
+      "item": [
+        {
+          "name": "2.1 Listar cartões do contrato",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meucontrato/v1/empresas/{{cnpj}}/contratos/{{contrato}}/cartoes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meucontrato",
+                "v1",
+                "empresas",
+                "{{cnpj}}",
+                "contratos",
+                "{{contrato}}",
+                "cartoes"
+              ]
+            },
+            "description": "Lista os cartões de postagem do contrato."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Consultar cartão de postagem",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meucontrato/v1/empresas/{{cnpj}}/contratos/{{contrato}}/cartoes/{{cartaoPostagem}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meucontrato",
+                "v1",
+                "empresas",
+                "{{cnpj}}",
+                "contratos",
+                "{{contrato}}",
+                "cartoes",
+                "{{cartaoPostagem}}"
+              ]
+            },
+            "description": "Dados do cartão de postagem em uso."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 Listar serviços do cartão",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meucontrato/v1/empresas/{{cnpj}}/contratos/{{contrato}}/cartoes/{{cartaoPostagem}}/servicos?page=0&size=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meucontrato",
+                "v1",
+                "empresas",
+                "{{cnpj}}",
+                "contratos",
+                "{{contrato}}",
+                "cartoes",
+                "{{cartaoPostagem}}",
+                "servicos"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Confere se os 4 serviços usados nos testes estão habilitados: 03220 SEDEX CONTRATO AG, 03298 PAC CONTRATO AG, 03247 SEDEX REVERSO e 03301 PAC REVERSO."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "let itens = j.itens || j.content || [];",
+                  "if (!Array.isArray(itens)) itens = [itens];",
+                  "const codigos = itens.map(i => String(i.codigo));",
+                  "console.log('Serviços do cartão:', itens.map(i => i.codigo + ' - ' + i.descricao).join(' | '));",
+                  "['servicoSedex','servicoPac','servicoSedexReverso','servicoPacReverso'].forEach(v => {",
+                  "  const c = pm.collectionVariables.get(v);",
+                  "  pm.test(`Serviço ${c} habilitado no cartão`, () => pm.expect(codigos).to.include(c));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 Consultar serviço 03220 - SEDEX CONTRATO AG",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meucontrato/v1/empresas/{{cnpj}}/contratos/{{contrato}}/cartoes/{{cartaoPostagem}}/servicos/{{servicoSedex}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meucontrato",
+                "v1",
+                "empresas",
+                "{{cnpj}}",
+                "contratos",
+                "{{contrato}}",
+                "cartoes",
+                "{{cartaoPostagem}}",
+                "servicos",
+                "{{servicoSedex}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.5 Consultar serviço 03298 - PAC CONTRATO AG",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meucontrato/v1/empresas/{{cnpj}}/contratos/{{contrato}}/cartoes/{{cartaoPostagem}}/servicos/{{servicoPac}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meucontrato",
+                "v1",
+                "empresas",
+                "{{cnpj}}",
+                "contratos",
+                "{{contrato}}",
+                "cartoes",
+                "{{cartaoPostagem}}",
+                "servicos",
+                "{{servicoPac}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.6 Consultar serviço 03247 - SEDEX REVERSO",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meucontrato/v1/empresas/{{cnpj}}/contratos/{{contrato}}/cartoes/{{cartaoPostagem}}/servicos/{{servicoSedexReverso}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meucontrato",
+                "v1",
+                "empresas",
+                "{{cnpj}}",
+                "contratos",
+                "{{contrato}}",
+                "cartoes",
+                "{{cartaoPostagem}}",
+                "servicos",
+                "{{servicoSedexReverso}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.7 Consultar serviço 03301 - PAC REVERSO",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meucontrato/v1/empresas/{{cnpj}}/contratos/{{contrato}}/cartoes/{{cartaoPostagem}}/servicos/{{servicoPacReverso}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meucontrato",
+                "v1",
+                "empresas",
+                "{{cnpj}}",
+                "contratos",
+                "{{contrato}}",
+                "cartoes",
+                "{{cartaoPostagem}}",
+                "servicos",
+                "{{servicoPacReverso}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - CEP (endereços)",
+      "description": "Arquivo correios-03-cep-enderecos-api.md",
+      "item": [
+        {
+          "name": "3.1 Consultar CEP do remetente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cep/v2/enderecos/{{remetenteCep}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cep",
+                "v2",
+                "enderecos",
+                "{{remetenteCep}}"
+              ]
+            },
+            "description": "Valida o CEP da loja (remetente nas postagens comuns / destinatário nas reversas) e atualiza logradouro, bairro, cidade e UF nas variáveis."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('CEP encontrado', () => pm.expect(j.cep).to.be.a('string'));",
+                  "// Atualiza o endereço usado na pré-postagem com os dados oficiais do DNE",
+                  "const p = 'remetente';",
+                  "if (j.logradouro) pm.collectionVariables.set(p + 'Logradouro', j.logradouro.substring(0, 50));",
+                  "if (j.bairro) pm.collectionVariables.set(p + 'Bairro', j.bairro.substring(0, 30));",
+                  "if (j.localidade) pm.collectionVariables.set(p + 'Cidade', j.localidade.substring(0, 30));",
+                  "if (j.uf) pm.collectionVariables.set(p + 'Uf', j.uf);",
+                  "console.log(p, '→', j.logradouro, '|', j.bairro, '|', j.localidade, '/', j.uf);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 Consultar CEP do destinatário",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cep/v2/enderecos/{{destinatarioCep}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cep",
+                "v2",
+                "enderecos",
+                "{{destinatarioCep}}"
+              ]
+            },
+            "description": "Valida o CEP do cliente (destinatário nas postagens comuns / remetente nas reversas) e atualiza as variáveis de endereço."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('CEP encontrado', () => pm.expect(j.cep).to.be.a('string'));",
+                  "// Atualiza o endereço usado na pré-postagem com os dados oficiais do DNE",
+                  "const p = 'destinatario';",
+                  "if (j.logradouro) pm.collectionVariables.set(p + 'Logradouro', j.logradouro.substring(0, 50));",
+                  "if (j.bairro) pm.collectionVariables.set(p + 'Bairro', j.bairro.substring(0, 30));",
+                  "if (j.localidade) pm.collectionVariables.set(p + 'Cidade', j.localidade.substring(0, 30));",
+                  "if (j.uf) pm.collectionVariables.set(p + 'Uf', j.uf);",
+                  "console.log(p, '→', j.logradouro, '|', j.bairro, '|', j.localidade, '/', j.uf);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 Consultar CEP inválido (teste negativo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cep/v2/enderecos/01001-000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cep",
+                "v2",
+                "enderecos",
+                "01001-000"
+              ]
+            },
+            "description": "CEP com hífen: deve retornar HTTP 400 com a mensagem de formato."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400 esperado', () => pm.response.to.have.status(400));",
+                  "console.log(pm.response.text());"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Preço",
+      "description": "Arquivo correios-04-preco-api.md. Preços em texto com vírgula decimal.",
+      "item": [
+        {
+          "name": "4.1 Preço SEDEX 03220 (com valor declarado)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/nacional/{{servicoSedex}}?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}&psObjeto={{pesoGramas}}&tpObjeto=2&comprimento={{comprimentoCm}}&largura={{larguraCm}}&altura={{alturaCm}}&servicosAdicionais={{adicionalVdSedex}}&vlDeclarado={{valorDeclarado}}&nuContrato={{contrato}}&nuDR={{dr}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "nacional",
+                "{{servicoSedex}}"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                },
+                {
+                  "key": "psObjeto",
+                  "value": "{{pesoGramas}}"
+                },
+                {
+                  "key": "tpObjeto",
+                  "value": "2"
+                },
+                {
+                  "key": "comprimento",
+                  "value": "{{comprimentoCm}}"
+                },
+                {
+                  "key": "largura",
+                  "value": "{{larguraCm}}"
+                },
+                {
+                  "key": "altura",
+                  "value": "{{alturaCm}}"
+                },
+                {
+                  "key": "servicosAdicionais",
+                  "value": "{{adicionalVdSedex}}"
+                },
+                {
+                  "key": "vlDeclarado",
+                  "value": "{{valorDeclarado}}"
+                },
+                {
+                  "key": "nuContrato",
+                  "value": "{{contrato}}"
+                },
+                {
+                  "key": "nuDR",
+                  "value": "{{dr}}"
+                }
+              ]
+            },
+            "description": "Preço do SEDEX CONTRATO AG para o pacote de teste, com valor declarado (adicional 019)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('pcFinal presente', () => pm.expect(j.pcFinal).to.exist);",
+                  "// pcFinal vem como texto com vírgula decimal (ex.: \"19,92\")",
+                  "const valor = parseFloat(String(j.pcFinal).replace('.', '').replace(',', '.'));",
+                  "console.log(j.coProduto, '→ R$', valor.toFixed(2), '| peso cobrado:', j.psCobrado);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 Preço PAC 03298 (com valor declarado)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/nacional/{{servicoPac}}?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}&psObjeto={{pesoGramas}}&tpObjeto=2&comprimento={{comprimentoCm}}&largura={{larguraCm}}&altura={{alturaCm}}&servicosAdicionais={{adicionalVdPac}}&vlDeclarado={{valorDeclarado}}&nuContrato={{contrato}}&nuDR={{dr}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "nacional",
+                "{{servicoPac}}"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                },
+                {
+                  "key": "psObjeto",
+                  "value": "{{pesoGramas}}"
+                },
+                {
+                  "key": "tpObjeto",
+                  "value": "2"
+                },
+                {
+                  "key": "comprimento",
+                  "value": "{{comprimentoCm}}"
+                },
+                {
+                  "key": "largura",
+                  "value": "{{larguraCm}}"
+                },
+                {
+                  "key": "altura",
+                  "value": "{{alturaCm}}"
+                },
+                {
+                  "key": "servicosAdicionais",
+                  "value": "{{adicionalVdPac}}"
+                },
+                {
+                  "key": "vlDeclarado",
+                  "value": "{{valorDeclarado}}"
+                },
+                {
+                  "key": "nuContrato",
+                  "value": "{{contrato}}"
+                },
+                {
+                  "key": "nuDR",
+                  "value": "{{dr}}"
+                }
+              ]
+            },
+            "description": "Preço do PAC CONTRATO AG, com valor declarado (adicional 064)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('pcFinal presente', () => pm.expect(j.pcFinal).to.exist);",
+                  "// pcFinal vem como texto com vírgula decimal (ex.: \"19,92\")",
+                  "const valor = parseFloat(String(j.pcFinal).replace('.', '').replace(',', '.'));",
+                  "console.log(j.coProduto, '→ R$', valor.toFixed(2), '| peso cobrado:', j.psCobrado);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 Preço SEDEX REVERSO 03247",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/nacional/{{servicoSedexReverso}}?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}&psObjeto={{pesoGramas}}&tpObjeto=2&comprimento={{comprimentoCm}}&largura={{larguraCm}}&altura={{alturaCm}}&servicosAdicionais={{adicionalReverso}}&nuContrato={{contrato}}&nuDR={{dr}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "nacional",
+                "{{servicoSedexReverso}}"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                },
+                {
+                  "key": "psObjeto",
+                  "value": "{{pesoGramas}}"
+                },
+                {
+                  "key": "tpObjeto",
+                  "value": "2"
+                },
+                {
+                  "key": "comprimento",
+                  "value": "{{comprimentoCm}}"
+                },
+                {
+                  "key": "largura",
+                  "value": "{{larguraCm}}"
+                },
+                {
+                  "key": "altura",
+                  "value": "{{alturaCm}}"
+                },
+                {
+                  "key": "servicosAdicionais",
+                  "value": "{{adicionalReverso}}"
+                },
+                {
+                  "key": "nuContrato",
+                  "value": "{{contrato}}"
+                },
+                {
+                  "key": "nuDR",
+                  "value": "{{dr}}"
+                }
+              ]
+            },
+            "description": "No SEDEX REVERSO o adicional 016 - LOGISTICA REV SIMULTANEA VOLTA (LRSV) é **obrigatório** (confirmado em 4.8); sem ele a API retorna `ERP-049: Servico adicional obrigatorio nao informado (016)`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('pcFinal presente', () => pm.expect(j.pcFinal).to.exist);",
+                  "// pcFinal vem como texto com vírgula decimal (ex.: \"19,92\")",
+                  "const valor = parseFloat(String(j.pcFinal).replace('.', '').replace(',', '.'));",
+                  "console.log(j.coProduto, '→ R$', valor.toFixed(2), '| peso cobrado:', j.psCobrado);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.4 Preço PAC REVERSO 03301",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/nacional/{{servicoPacReverso}}?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}&psObjeto={{pesoGramas}}&tpObjeto=2&comprimento={{comprimentoCm}}&largura={{larguraCm}}&altura={{alturaCm}}&nuContrato={{contrato}}&nuDR={{dr}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "nacional",
+                "{{servicoPacReverso}}"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                },
+                {
+                  "key": "psObjeto",
+                  "value": "{{pesoGramas}}"
+                },
+                {
+                  "key": "tpObjeto",
+                  "value": "2"
+                },
+                {
+                  "key": "comprimento",
+                  "value": "{{comprimentoCm}}"
+                },
+                {
+                  "key": "largura",
+                  "value": "{{larguraCm}}"
+                },
+                {
+                  "key": "altura",
+                  "value": "{{alturaCm}}"
+                },
+                {
+                  "key": "nuContrato",
+                  "value": "{{contrato}}"
+                },
+                {
+                  "key": "nuDR",
+                  "value": "{{dr}}"
+                }
+              ]
+            },
+            "description": "No PAC REVERSO o adicional 016 (LOGISTICA REV SIMULTANEA VOLTA) é **opcional** (confirmado em 4.9), por isso não é enviado."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('pcFinal presente', () => pm.expect(j.pcFinal).to.exist);",
+                  "// pcFinal vem como texto com vírgula decimal (ex.: \"19,92\")",
+                  "const valor = parseFloat(String(j.pcFinal).replace('.', '').replace(',', '.'));",
+                  "console.log(j.coProduto, '→ R$', valor.toFixed(2), '| peso cobrado:', j.psCobrado);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.5 Preço em lote (4 serviços)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/nacional",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "nacional"
+              ]
+            },
+            "description": "Consulta os 4 serviços de uma vez. HTTP 206 = parte dos itens falhou — verifique item a item.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idLote\": \"LOTE-PRECO-001\",\n  \"parametrosProduto\": [\n    {\n      \"coProduto\": \"{{servicoSedex}}\",\n      \"nuRequisicao\": \"1\",\n      \"nuContrato\": \"{{contrato}}\",\n      \"nuDR\": {{dr}},\n      \"cepOrigem\": \"{{remetenteCep}}\",\n      \"cepDestino\": \"{{destinatarioCep}}\",\n      \"psObjeto\": \"{{pesoGramas}}\",\n      \"tpObjeto\": \"2\",\n      \"comprimento\": \"{{comprimentoCm}}\",\n      \"largura\": \"{{larguraCm}}\",\n      \"altura\": \"{{alturaCm}}\",\n      \"servicosAdicionais\": [\n        \"{{adicionalVdSedex}}\"\n      ],\n      \"vlDeclarado\": \"{{valorDeclarado}}\"\n    },\n    {\n      \"coProduto\": \"{{servicoPac}}\",\n      \"nuRequisicao\": \"2\",\n      \"nuContrato\": \"{{contrato}}\",\n      \"nuDR\": {{dr}},\n      \"cepOrigem\": \"{{remetenteCep}}\",\n      \"cepDestino\": \"{{destinatarioCep}}\",\n      \"psObjeto\": \"{{pesoGramas}}\",\n      \"tpObjeto\": \"2\",\n      \"comprimento\": \"{{comprimentoCm}}\",\n      \"largura\": \"{{larguraCm}}\",\n      \"altura\": \"{{alturaCm}}\",\n      \"servicosAdicionais\": [\n        \"{{adicionalVdPac}}\"\n      ],\n      \"vlDeclarado\": \"{{valorDeclarado}}\"\n    },\n    {\n      \"coProduto\": \"{{servicoSedexReverso}}\",\n      \"nuRequisicao\": \"3\",\n      \"nuContrato\": \"{{contrato}}\",\n      \"nuDR\": {{dr}},\n      \"cepOrigem\": \"{{remetenteCep}}\",\n      \"cepDestino\": \"{{destinatarioCep}}\",\n      \"psObjeto\": \"{{pesoGramas}}\",\n      \"tpObjeto\": \"2\",\n      \"comprimento\": \"{{comprimentoCm}}\",\n      \"largura\": \"{{larguraCm}}\",\n      \"altura\": \"{{alturaCm}}\",\n      \"servicosAdicionais\": [\n        \"{{adicionalReverso}}\"\n      ]\n    },\n    {\n      \"coProduto\": \"{{servicoPacReverso}}\",\n      \"nuRequisicao\": \"4\",\n      \"nuContrato\": \"{{contrato}}\",\n      \"nuDR\": {{dr}},\n      \"cepOrigem\": \"{{remetenteCep}}\",\n      \"cepDestino\": \"{{destinatarioCep}}\",\n      \"psObjeto\": \"{{pesoGramas}}\",\n      \"tpObjeto\": \"2\",\n      \"comprimento\": \"{{comprimentoCm}}\",\n      \"largura\": \"{{larguraCm}}\",\n      \"altura\": \"{{alturaCm}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP [200, 206]', () => pm.expect(pm.response.code).to.be.oneOf([200, 206]));",
+                  "const j = pm.response.json();",
+                  "(Array.isArray(j) ? j : [j]).forEach(i => console.log(i.nuRequisicao, i.coProduto, '→', i.pcFinal || JSON.stringify(i.txErro || i.msgs || i)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.6 Serviços adicionais aceitos pelo SEDEX 03220",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/servicos-adicionais/{{servicoSedex}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "servicos-adicionais",
+                "{{servicoSedex}}"
+              ]
+            },
+            "description": "Mostra quais adicionais o serviço aceita (use para confirmar os códigos de valor declarado)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log(pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.7 Serviços adicionais aceitos pelo PAC 03298",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/servicos-adicionais/{{servicoPac}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "servicos-adicionais",
+                "{{servicoPac}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log(pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.8 Serviços adicionais do SEDEX REVERSO 03247",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/servicos-adicionais/{{servicoSedexReverso}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "servicos-adicionais",
+                "{{servicoSedexReverso}}"
+              ]
+            },
+            "description": "Lista adicionais aceitos, requeridos e excludentes do serviço reverso (o Console mostra um resumo)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "const lista = Array.isArray(j) ? j : [j];",
+                  "lista.forEach(a => console.log(a.codigo, '-', a.nome, '(' + a.sigla + ') |', a.noIndicador, '| R$', a.preco, '| requeridos:', JSON.stringify((a.requeridos || []).map(r => r.coRequerido)), '| excludentes:', JSON.stringify((a.excludentes || []).map(e => e.coExcludente))));",
+                  "const obrig = lista.filter(a => a.sgIndicador === 'O').map(a => a.codigo);",
+                  "console.log('Adicionais OBRIGATÓRIOS:', obrig.join(', ') || 'nenhum');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.9 Serviços adicionais do PAC REVERSO 03301",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/preco/v1/servicos-adicionais/{{servicoPacReverso}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "preco",
+                "v1",
+                "servicos-adicionais",
+                "{{servicoPacReverso}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "const lista = Array.isArray(j) ? j : [j];",
+                  "lista.forEach(a => console.log(a.codigo, '-', a.nome, '(' + a.sigla + ') |', a.noIndicador, '| R$', a.preco, '| requeridos:', JSON.stringify((a.requeridos || []).map(r => r.coRequerido)), '| excludentes:', JSON.stringify((a.excludentes || []).map(e => e.coExcludente))));",
+                  "const obrig = lista.filter(a => a.sgIndicador === 'O').map(a => a.codigo);",
+                  "console.log('Adicionais OBRIGATÓRIOS:', obrig.join(', ') || 'nenhum');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Prazo",
+      "description": "Arquivo correios-05-prazo-api.md",
+      "item": [
+        {
+          "name": "5.1 Prazo SEDEX 03220",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prazo/v1/nacional/{{servicoSedex}}?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prazo",
+                "v1",
+                "nacional",
+                "{{servicoSedex}}"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log(j.coProduto, '→', j.prazoEntrega, 'dia(s) úteis | data máxima:', j.dataMaxima);",
+                  "if (j.prazoEntrega != null) pm.collectionVariables.set('prazoDiasUltimaConsulta', String(j.prazoEntrega));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 Prazo PAC 03298",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prazo/v1/nacional/{{servicoPac}}?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prazo",
+                "v1",
+                "nacional",
+                "{{servicoPac}}"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log(j.coProduto, '→', j.prazoEntrega, 'dia(s) úteis | data máxima:', j.dataMaxima);",
+                  "if (j.prazoEntrega != null) pm.collectionVariables.set('prazoDiasUltimaConsulta', String(j.prazoEntrega));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 Prazo SEDEX REVERSO 03247",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prazo/v1/nacional/{{servicoSedexReverso}}?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prazo",
+                "v1",
+                "nacional",
+                "{{servicoSedexReverso}}"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log(j.coProduto, '→', j.prazoEntrega, 'dia(s) úteis | data máxima:', j.dataMaxima);",
+                  "if (j.prazoEntrega != null) pm.collectionVariables.set('prazoDiasUltimaConsulta', String(j.prazoEntrega));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.4 Prazo PAC REVERSO 03301",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prazo/v1/nacional/{{servicoPacReverso}}?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prazo",
+                "v1",
+                "nacional",
+                "{{servicoPacReverso}}"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log(j.coProduto, '→', j.prazoEntrega, 'dia(s) úteis | data máxima:', j.dataMaxima);",
+                  "if (j.prazoEntrega != null) pm.collectionVariables.set('prazoDiasUltimaConsulta', String(j.prazoEntrega));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.5 Prazo em lote (4 serviços)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prazo/v1/nacional",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prazo",
+                "v1",
+                "nacional"
+              ]
+            },
+            "description": "dtEvento omitido = data atual.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idLote\": \"LOTE-PRAZO-001\",\n  \"parametrosPrazo\": [\n    {\n      \"coProduto\": \"{{servicoSedex}}\",\n      \"nuRequisicao\": \"1\",\n      \"cepOrigem\": \"{{remetenteCep}}\",\n      \"cepDestino\": \"{{destinatarioCep}}\"\n    },\n    {\n      \"coProduto\": \"{{servicoPac}}\",\n      \"nuRequisicao\": \"2\",\n      \"cepOrigem\": \"{{remetenteCep}}\",\n      \"cepDestino\": \"{{destinatarioCep}}\"\n    },\n    {\n      \"coProduto\": \"{{servicoSedexReverso}}\",\n      \"nuRequisicao\": \"3\",\n      \"cepOrigem\": \"{{remetenteCep}}\",\n      \"cepDestino\": \"{{destinatarioCep}}\"\n    },\n    {\n      \"coProduto\": \"{{servicoPacReverso}}\",\n      \"nuRequisicao\": \"4\",\n      \"cepOrigem\": \"{{remetenteCep}}\",\n      \"cepDestino\": \"{{destinatarioCep}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP [200, 206]', () => pm.expect(pm.response.code).to.be.oneOf([200, 206]));",
+                  "const j = pm.response.json();",
+                  "(Array.isArray(j) ? j : [j]).forEach(i => console.log(i.nuRequisicao, i.coProduto, '→', i.prazoEntrega, 'dias', i.dataMaxima || i.txErro || ''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.6 Data prevista de entrega",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prazo/v1/data-prevista?cepOrigem={{remetenteCep}}&cepDestino={{destinatarioCep}}&prazo={{prazoDiasUltimaConsulta}}&dtPostagem={{dataHojeHifen}}&coProduto={{servicoPac}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prazo",
+                "v1",
+                "data-prevista"
+              ],
+              "query": [
+                {
+                  "key": "cepOrigem",
+                  "value": "{{remetenteCep}}"
+                },
+                {
+                  "key": "cepDestino",
+                  "value": "{{destinatarioCep}}"
+                },
+                {
+                  "key": "prazo",
+                  "value": "{{prazoDiasUltimaConsulta}}"
+                },
+                {
+                  "key": "dtPostagem",
+                  "value": "{{dataHojeHifen}}"
+                },
+                {
+                  "key": "coProduto",
+                  "value": "{{servicoPac}}"
+                }
+              ]
+            },
+            "description": "Calcula a data de entrega a partir do prazo da última consulta (5.4 ou 5.2)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log(pm.response.text());"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Data de hoje no formato DD-MM-YYYY (usada em data-prevista)",
+              "const d = new Date(), f = x => String(x).padStart(2, '0');",
+              "pm.collectionVariables.set('dataHojeHifen', `${f(d.getDate())}-${f(d.getMonth() + 1)}-${d.getFullYear()}`);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Pré-postagem (síncrona)",
+      "description": "Arquivo correios-06-prepostagem-criar-api.md. Postagem comum (6.1, 6.2) e reversa (6.3, 6.4).",
+      "item": [
+        {
+          "name": "6.1 Criar pré-postagem SEDEX 03220 (valor declarado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Postagem comum: loja → cliente, SEDEX CONTRATO AG, com valor declarado (019) e declaração de conteúdo. Grava `idPrePostagemSedex` e `codigoObjetoSedex`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\",\n      \"regiao\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoSedex}}\",\n  \"listaServicoAdicional\": [\n    {\n      \"codigoServicoAdicional\": \"{{adicionalVdSedex}}\",\n      \"valorDeclarado\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0001\",\n  \"logisticaReversa\": \"N\",\n  \"prazoPostagem\": \"{{prazoPostagem}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemSedex', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoSedex', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 Criar pré-postagem PAC 03298 (valor declarado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Postagem comum: loja → cliente, PAC CONTRATO AG, com valor declarado (064). Grava `idPrePostagemPac` e `codigoObjetoPac`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\",\n      \"regiao\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoPac}}\",\n  \"listaServicoAdicional\": [\n    {\n      \"codigoServicoAdicional\": \"{{adicionalVdPac}}\",\n      \"valorDeclarado\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0002\",\n  \"logisticaReversa\": \"N\",\n  \"prazoPostagem\": \"{{prazoPostagem}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemPac', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoPac', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 Criar pré-postagem reversa SEDEX REVERSO 03247",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Logística reversa: cliente → loja. `logisticaReversa = S`, e-mail do remetente obrigatório, validade da autorização em `dataValidadeLogReversa`. Grava `idPrePostagemSedexReverso`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\",\n      \"regiao\": \"{{remetenteUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoSedexReverso}}\",\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0003\",\n  \"logisticaReversa\": \"S\",\n  \"dataValidadeLogReversa\": \"{{dataValidadeLogReversa}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemSedexReverso', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoSedexReverso', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.4 Criar pré-postagem reversa PAC REVERSO 03301",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Logística reversa: cliente → loja, PAC REVERSO. Grava `idPrePostagemPacReverso`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\",\n      \"regiao\": \"{{remetenteUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoPacReverso}}\",\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0004\",\n  \"logisticaReversa\": \"S\",\n  \"dataValidadeLogReversa\": \"{{dataValidadeLogReversa}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemPacReverso', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoPacReverso', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.5 Emitir declaração de conteúdo (SEDEX)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/declaracaoconteudo/{{idPrePostagemSedex}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "declaracaoconteudo",
+                "{{idPrePostagemSedex}}"
+              ]
+            },
+            "description": "Fonte: manual V2.4 (seção 15.K) — retorna HTML; exige pré-postagem com status pré-postado. ⚠ **Instável em homologação (27/09/2026):** `Accept: application/json` → HTTP 400 (`this.viewResolver is null`, falha interna ao montar o HTML); `text/html` e `*/*` → HTTP 500 genérico. Mantido `application/json` porque é o único que devolve mensagem de erro legível. Se funcionar, o documento aparece na aba **Visualize**."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const ct = pm.response.headers.get('Content-Type') || '';",
+                  "console.log('Content-Type:', ct);",
+                  "if (pm.response.code === 200 && /html/i.test(ct)) pm.visualizer.set(pm.response.text());",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.6 Criar pré-postagem SEDEX 03220 com AR (001) + valor declarado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Igual à 6.1, com o adicional **001 - AR Convencional** além do valor declarado. Necessária para a 6.7: sem o 001 a emissão do AR retorna HTTP 422 `O objeto consultado não possui o serviço AR Convencional 001 associado.` Grava `idPrePostagemSedexAr`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\",\n      \"regiao\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoSedex}}\",\n  \"listaServicoAdicional\": [\n    {\n      \"codigoServicoAdicional\": \"{{adicionalVdSedex}}\",\n      \"valorDeclarado\": \"{{valorDeclarado}}\"\n    },\n    {\n      \"codigoServicoAdicional\": \"{{adicionalAr}}\"\n    }\n  ],\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0006\",\n  \"logisticaReversa\": \"N\",\n  \"prazoPostagem\": \"{{prazoPostagem}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemSedexAr', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoSedexAr', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.7 Emitir aviso de recebimento - AR (SEDEX com AR)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/avisorecebimento/{{idPrePostagemSedexAr}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "avisorecebimento",
+                "{{idPrePostagemSedexAr}}"
+              ]
+            },
+            "description": "Fonte: manual V2.4 (seção 15.L) — retorna HTML. ⚠ Com `text/html` e `*/*` a homologação devolveu HTTP 500 genérico; com `application/json` os erros vêm em JSON (ex.: 422 quando falta o adicional 001). Usa a pré-postagem da 6.6, que tem o adicional 001 - AR Convencional (obrigatório para emitir o AR)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const ct = pm.response.headers.get('Content-Type') || '';",
+                  "console.log('Content-Type:', ct);",
+                  "if (pm.response.code === 200 && /html/i.test(ct)) pm.visualizer.set(pm.response.text());",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Datas dinâmicas no formato dd/MM/yyyy",
+              "const f = x => String(x).padStart(2, '0');",
+              "const fmt = d => `${f(d.getDate())}/${f(d.getMonth() + 1)}/${d.getFullYear()}`;",
+              "const somaDias = n => { const d = new Date(); d.setDate(d.getDate() + n); return d; };",
+              "pm.collectionVariables.set('prazoPostagem', fmt(somaDias(14)));          // padrão da API: criação + 14 dias",
+              "pm.collectionVariables.set('dataValidadeLogReversa', fmt(somaDias(10)));  // validade da autorização de postagem reversa"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Pré-postagem assíncrona (registrados)",
+      "description": "Arquivo correios-07-prepostagem-assincrona-registrados-api.md",
+      "item": [
+        {
+          "name": "7.1 Criar pré-postagem assíncrona PAC 03298",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/assincrona",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "assincrona"
+              ]
+            },
+            "description": "Mesmo corpo da criação síncrona. Retorna um recibo, gravado em `reciboPrePostagemAssincrona`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\",\n      \"regiao\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoPac}}\",\n  \"listaServicoAdicional\": [\n    {\n      \"codigoServicoAdicional\": \"{{adicionalVdPac}}\",\n      \"valorDeclarado\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0005\",\n  \"logisticaReversa\": \"N\",\n  \"prazoPostagem\": \"{{prazoPostagem}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "// A resposta é o recibo (string) — pode vir como texto puro ou entre aspas",
+                  "let recibo = pm.response.text().trim().replace(/^\"|\"$/g, '');",
+                  "try { const j = JSON.parse(pm.response.text()); if (typeof j === 'object') recibo = j.recibo || j.idRecibo || j.numero || recibo; } catch (e) {}",
+                  "pm.test('Recibo recebido', () => pm.expect(recibo).to.not.be.empty);",
+                  "pm.collectionVariables.set('reciboPrePostagemAssincrona', recibo);",
+                  "console.log('Recibo:', recibo);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.2 Consultar processamento pelo recibo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/assincrona/{{reciboPrePostagemAssincrona}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "assincrona",
+                "{{reciboPrePostagemAssincrona}}"
+              ]
+            },
+            "description": "Repita até `situacao = PROCESSADO`. Grava `idPrePostagemAssincrona` e `codigoObjetoAssincrona`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log('Situação:', j.situacao);",
+                  "pm.test('Processamento concluído', () => pm.expect(j.situacao).to.eql('PROCESSADO'));",
+                  "if (j.situacao === 'PROCESSADO' && Array.isArray(j.prePostagens) && j.prePostagens.length) {",
+                  "  pm.collectionVariables.set('idPrePostagemAssincrona', j.prePostagens[0].id || '');",
+                  "  pm.collectionVariables.set('codigoObjetoAssincrona', j.prePostagens[0].codigoObjeto || '');",
+                  "  const st = j.prePostagens[0].statusAtual;",
+                  "  pm.collectionVariables.set('statusPrePostagemAssincrona', st == null ? '' : String(st));",
+                  "  console.log('Criada:', j.prePostagens[0].id, j.prePostagens[0].codigoObjeto, '| statusAtual:', st, j.prePostagens[0].descStatusAtual || '');",
+                  "  pm.test('Pré-postagem pronta para rótulo (statusAtual = 2)', () => pm.expect(String(st)).to.eql('2'));",
+                  "  if (String(st) === '7') console.log('ATENÇÃO: status 7 (PENDENTE) — aguarde alguns minutos e rode 7.2 de novo. Só execute 8.3 com status 2: recibo pedido com status 7 não funciona no download (PPN-288).');",
+                  "} else if (j.situacao === 'FALHA') {",
+                  "  console.log('Mensagens:', JSON.stringify(j.mensagens), JSON.stringify(j.sequencias));",
+                  "} else { console.log('Ainda não processado — aguarde alguns segundos e envie de novo.'); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.3 Cancelar a pré-postagem assíncrona",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/assincrona",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "assincrona"
+              ]
+            },
+            "description": "DELETE com corpo JSON. Cancela a pré-postagem criada em 7.1. **Se quiser imprimir a etiqueta dela, execute antes 8.3 e 9.1** — depois de cancelada, o rótulo não é gerado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idsPrePostagens\": [\n    \"{{idPrePostagemAssincrona}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());",
+                  "let recibo = pm.response.text().trim().replace(/^\"|\"$/g, '');",
+                  "try { const j = JSON.parse(pm.response.text()); if (j && typeof j === 'object') { const k = Object.keys(j).find(k => /recibo/i.test(k)); recibo = k ? j[k] : JSON.stringify(j); } } catch (e) {}",
+                  "pm.collectionVariables.set('reciboCancelamento', recibo);",
+                  "console.log('Resposta do cancelamento:', pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.4 Consultar resultado do cancelamento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/canceladas/assincrona/{{reciboCancelamento}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "canceladas",
+                "assincrona",
+                "{{reciboCancelamento}}"
+              ]
+            },
+            "description": "Confirma o cancelamento solicitado em 7.3."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log(pm.response.text());"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Datas dinâmicas no formato dd/MM/yyyy",
+              "const f = x => String(x).padStart(2, '0');",
+              "const fmt = d => `${f(d.getDate())}/${f(d.getMonth() + 1)}/${d.getFullYear()}`;",
+              "const somaDias = n => { const d = new Date(); d.setDate(d.getDate() + n); return d; };",
+              "pm.collectionVariables.set('prazoPostagem', fmt(somaDias(14)));          // padrão da API: criação + 14 dias",
+              "pm.collectionVariables.set('dataValidadeLogReversa', fmt(somaDias(10)));  // validade da autorização de postagem reversa"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Rótulo (solicitar PDF)",
+      "description": "Arquivo correios-08-rotulo-solicitar-assincrono-pdf-api.md",
+      "item": [
+        {
+          "name": "8.1 Solicitar rótulos SEDEX + PAC (PDF assíncrono)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "rotulo",
+                "assincrono",
+                "pdf"
+              ]
+            },
+            "description": "Solicita um único PDF com as etiquetas das postagens comuns já criadas (6.1 SEDEX e 6.2 PAC; ids vazios são ignorados). Resposta observada: `{idRecibo: ...}` → grava `reciboRotulo`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idsPrePostagem\": {{idsPrePostagemRotulo}},\n  \"tipoRotulo\": \"P\",\n  \"formatoRotulo\": \"ET\",\n  \"imprimeRemetente\": \"S\",\n  \"layoutImpressao\": \"PADRAO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Monta a lista com as postagens comuns já criadas (6.1 e 6.2), ignorando ids vazios",
+                  "const ids = ['idPrePostagemSedex', 'idPrePostagemPac']",
+                  "  .map(v => pm.collectionVariables.get(v)).filter(v => v && v.trim());",
+                  "pm.collectionVariables.set('idsPrePostagemRotulo', JSON.stringify(ids));",
+                  "console.log('Ids enviados para o rótulo:', ids.join(', ') || '(nenhum — execute a pasta 06 antes)');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());",
+                  "// Resposta observada em homologação: {\"idRecibo\":\"...\"}",
+                  "let recibo = '';",
+                  "try {",
+                  "  const j = pm.response.json();",
+                  "  const busca = o => { if (!o || typeof o !== 'object') return ''; for (const k of Object.keys(o)) { if (/recibo/i.test(k) && typeof o[k] !== 'object') return o[k]; const r = busca(o[k]); if (r) return r; } return ''; };",
+                  "  recibo = j.idRecibo || (typeof j === 'string' ? j : busca(j));",
+                  "} catch (e) { recibo = pm.response.text().trim().replace(/^\"|\"$/g, ''); }",
+                  "pm.test('Recibo do rótulo recebido', () => pm.expect(String(recibo)).to.not.be.empty);",
+                  "pm.collectionVariables.set('reciboRotulo', String(recibo));",
+                  "console.log('idRecibo:', recibo);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.2 Solicitar rótulo reduzido 10x15 (SEDEX)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "rotulo",
+                "assincrono",
+                "pdf"
+              ]
+            },
+            "description": "Variação para impressora térmica: tipo R (reduzido) e layout LINEAR_100_150.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idsPrePostagem\": [\n    \"{{idPrePostagemSedex}}\"\n  ],\n  \"tipoRotulo\": \"R\",\n  \"layoutImpressao\": \"LINEAR_100_150\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());",
+                  "// Resposta observada em homologação: {\"idRecibo\":\"...\"}",
+                  "let recibo = '';",
+                  "try {",
+                  "  const j = pm.response.json();",
+                  "  const busca = o => { if (!o || typeof o !== 'object') return ''; for (const k of Object.keys(o)) { if (/recibo/i.test(k) && typeof o[k] !== 'object') return o[k]; const r = busca(o[k]); if (r) return r; } return ''; };",
+                  "  recibo = j.idRecibo || (typeof j === 'string' ? j : busca(j));",
+                  "} catch (e) { recibo = pm.response.text().trim().replace(/^\"|\"$/g, ''); }",
+                  "pm.test('Recibo do rótulo recebido', () => pm.expect(String(recibo)).to.not.be.empty);",
+                  "pm.collectionVariables.set('reciboRotulo', String(recibo));",
+                  "console.log('idRecibo:', recibo);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.3 Solicitar rótulo da pré-postagem assíncrona (7.1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/rotulo/assincrono/pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "rotulo",
+                "assincrono",
+                "pdf"
+              ]
+            },
+            "description": "Etiqueta da pré-postagem criada pela via assíncrona. Sequência: 7.1 → 7.2 (repita até situacao = PROCESSADO **e statusAtual = 2**; com 7 - PENDENTE, aguarde alguns minutos) → **esta requisição** → 9.1. Um recibo pedido com status 7 nunca funciona no download (PPN-288), nem depois — nesse caso, rode esta requisição de novo. Não execute 7.3 (cancelamento) antes, senão a pré-postagem fica cancelada e o rótulo não é gerado.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idsPrePostagem\": [\n    \"{{idPrePostagemAssincrona}}\"\n  ],\n  \"tipoRotulo\": \"P\",\n  \"formatoRotulo\": \"ET\",\n  \"imprimeRemetente\": \"S\",\n  \"layoutImpressao\": \"PADRAO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const id = pm.collectionVariables.get('idPrePostagemAssincrona');",
+                  "if (!id) console.log('ATENÇÃO: idPrePostagemAssincrona vazio — execute 7.1 e depois 7.2 até situacao = PROCESSADO.');",
+                  "const st = pm.collectionVariables.get('statusPrePostagemAssincrona');",
+                  "if (st && st !== '2') console.log('ATENÇÃO: a última consulta (7.2) indicou status ' + st + '. Rode 7.2 até statusAtual = 2 antes desta requisição — o recibo gerado agora não funcionará no download (PPN-288).');",
+                  "else console.log('Solicitando rótulo da pré-postagem assíncrona', id, '| objeto', pm.collectionVariables.get('codigoObjetoAssincrona'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());",
+                  "// Resposta observada em homologação: {\"idRecibo\":\"...\"}",
+                  "let recibo = '';",
+                  "try {",
+                  "  const j = pm.response.json();",
+                  "  const busca = o => { if (!o || typeof o !== 'object') return ''; for (const k of Object.keys(o)) { if (/recibo/i.test(k) && typeof o[k] !== 'object') return o[k]; const r = busca(o[k]); if (r) return r; } return ''; };",
+                  "  recibo = j.idRecibo || (typeof j === 'string' ? j : busca(j));",
+                  "} catch (e) { recibo = pm.response.text().trim().replace(/^\"|\"$/g, ''); }",
+                  "pm.test('Recibo do rótulo recebido', () => pm.expect(String(recibo)).to.not.be.empty);",
+                  "pm.collectionVariables.set('reciboRotulo', String(recibo));",
+                  "console.log('idRecibo:', recibo);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 - Rótulo (download)",
+      "description": "Arquivo correios-09-rotulo-download-assincrono-api.md",
+      "item": [
+        {
+          "name": "9.1 Baixar rótulo pelo recibo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/rotulo/download/assincrono/{{reciboRotulo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "rotulo",
+                "download",
+                "assincrono",
+                "{{reciboRotulo}}"
+              ]
+            },
+            "description": "Se o arquivo ainda não estiver pronto, aguarde alguns segundos e envie de novo. Quando o PDF vier em Base64, a aba **Visualize** mostra a etiqueta."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());",
+                  "// Resposta observada em homologação: { dados: <PDF em Base64>, nome: 'idRecibo_<idRecibo>.pdf' }",
+                  "const j = pm.response.json();",
+                  "pm.test('Campo dados (PDF em Base64) presente', () => pm.expect(j.dados).to.be.a('string').and.match(/^JVBER/));",
+                  "pm.test('Campo nome presente', () => pm.expect(j.nome).to.match(/\\.pdf$/));",
+                  "console.log('Arquivo:', j.nome, '| Base64:', (j.dados || '').length, 'caracteres');",
+                  "if (j.dados) pm.visualizer.set(`<embed src=\"data:application/pdf;base64,{{pdf}}\" type=\"application/pdf\" width=\"100%\" height=\"800px\"/>`, { pdf: j.dados });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 - Rastro (SRO)",
+      "description": "Arquivo correios-10-rastro-sro-api.md",
+      "item": [
+        {
+          "name": "10.1 Rastrear objeto SEDEX (todos os eventos)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/srorastro/v1/objetos/{{codigoObjetoSedex}}?resultado=T",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "srorastro",
+                "v1",
+                "objetos",
+                "{{codigoObjetoSedex}}"
+              ],
+              "query": [
+                {
+                  "key": "resultado",
+                  "value": "T"
+                }
+              ]
+            },
+            "description": "Em homologação o objeto pré-postado normalmente ainda não tem eventos (ou retorna mensagem de objeto não encontrado)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "(j.objetos || []).forEach(o => console.log(o.codObjeto, '→', (o.eventos || []).map(e => e.codigo + '/' + e.tipo + ' ' + e.descricao).join(' | ') || (o.mensagem || 'sem eventos')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10.2 Rastrear lista de objetos (último evento)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/srorastro/v1/objetos?codigosObjetos={{codigoObjetoSedex}}&codigosObjetos={{codigoObjetoPac}}&resultado=U",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "srorastro",
+                "v1",
+                "objetos"
+              ],
+              "query": [
+                {
+                  "key": "codigosObjetos",
+                  "value": "{{codigoObjetoSedex}}"
+                },
+                {
+                  "key": "codigosObjetos",
+                  "value": "{{codigoObjetoPac}}"
+                },
+                {
+                  "key": "resultado",
+                  "value": "U"
+                }
+              ]
+            },
+            "description": "Até 50 códigos por chamada."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "(j.objetos || []).forEach(o => console.log(o.codObjeto, '→', (o.eventos || []).map(e => e.codigo + '/' + e.tipo + ' ' + e.descricao).join(' | ') || (o.mensagem || 'sem eventos')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10.3 Rastrear objeto de exemplo do manual",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/srorastro/v1/objetos/{{codigoObjetoExemplo}}?resultado=T",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "srorastro",
+                "v1",
+                "objetos",
+                "{{codigoObjetoExemplo}}"
+              ],
+              "query": [
+                {
+                  "key": "resultado",
+                  "value": "T"
+                }
+              ]
+            },
+            "description": "Código de exemplo citado no manual V2.4 (DG049186226BR) — útil para ver a estrutura de eventos."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "(j.objetos || []).forEach(o => console.log(o.codObjeto, '→', (o.eventos || []).map(e => e.codigo + '/' + e.tipo + ' ' + e.descricao).join(' | ') || (o.mensagem || 'sem eventos')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11 - Webhook",
+      "description": "Arquivo correios-11-webhook-api.md",
+      "item": [
+        {
+          "name": "11.1 Listar serviços de webhook",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/v1/servicos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "v1",
+                "servicos"
+              ]
+            },
+            "description": "Identifique o `idServicoWebhook` (ex.: wh-rastro) e os tipos de evento."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log(pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11.2 Consultar serviço wh-rastro",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/v1/servicos/{{idServicoWebhook}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "v1",
+                "servicos",
+                "{{idServicoWebhook}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11.3 Listar assinaturas existentes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/v1/servicos/assinaturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "v1",
+                "servicos",
+                "assinaturas"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log(pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11.4 Criar assinatura",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/v1/servicos/{{idServicoWebhook}}/assinaturas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "v1",
+                "servicos",
+                "{{idServicoWebhook}}",
+                "assinaturas"
+              ]
+            },
+            "description": "**Antes de enviar, troque `webhookUrl` por uma URL HTTPS sua** (ex.: uma URL de inspeção do webhook.site). Grava `idAssinatura` e `idEndereco`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Assinatura de teste - homologacao\",\n  \"email\": \"{{lojaEmail}}\",\n  \"language\": \"PT\",\n  \"enderecos\": [\n    {\n      \"nome\": \"Endpoint de teste\",\n      \"url\": \"{{webhookUrl}}\",\n      \"secret\": \"{{webhookSecret}}\",\n      \"tipoEventos\": [\n        {\n          \"tipo\": \"*\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP [200, 201]', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());",
+                  "const j = pm.response.json();",
+                  "const id = j.id || j.idAssinatura;",
+                  "pm.test('Assinatura criada', () => pm.expect(id).to.exist);",
+                  "pm.collectionVariables.set('idAssinatura', String(id || ''));",
+                  "const e = (j.enderecos || [])[0];",
+                  "if (e) pm.collectionVariables.set('idEndereco', String(e.id || e.idEndereco || ''));",
+                  "console.log(JSON.stringify(j));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11.5 Consultar assinatura",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/v1/servicos/{{idServicoWebhook}}/assinaturas/{{idAssinatura}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "v1",
+                "servicos",
+                "{{idServicoWebhook}}",
+                "assinaturas",
+                "{{idAssinatura}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11.6 Enviar mensagem de teste",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/v1/servicos/{{idServicoWebhook}}/assinaturas/{{idAssinatura}}/teste",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "v1",
+                "servicos",
+                "{{idServicoWebhook}}",
+                "assinaturas",
+                "{{idAssinatura}}",
+                "teste"
+              ]
+            },
+            "description": "Envia um evento de teste para a URL cadastrada."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP [200, 201, 202, 204]', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]));",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11.7 Listar eventos recebidos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/v1/servicos/{{idServicoWebhook}}/assinaturas/{{idAssinatura}}/eventos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "v1",
+                "servicos",
+                "{{idServicoWebhook}}",
+                "assinaturas",
+                "{{idAssinatura}}",
+                "eventos"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log(pm.response.text());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11.8 Desativar assinatura",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/v1/servicos/{{idServicoWebhook}}/assinaturas/{{idAssinatura}}/desativa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "v1",
+                "servicos",
+                "{{idServicoWebhook}}",
+                "assinaturas",
+                "{{idAssinatura}}",
+                "desativa"
+              ]
+            },
+            "description": "Encerra o teste desativando a assinatura."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP [200, 204]', () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));",
+                  "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12 - Pré-postagem postada (dados reais da postagem)",
+      "description": "Arquivo correios-12-prepostagem-postada-api.md. Só retorna dados depois que o objeto é postado na agência.",
+      "item": [
+        {
+          "name": "12.1 Consultar postagem do objeto SEDEX",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/postada?codigoObjeto={{codigoObjetoSedex}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "postada"
+              ],
+              "query": [
+                {
+                  "key": "codigoObjeto",
+                  "value": "{{codigoObjetoSedex}}"
+                }
+              ]
+            },
+            "description": "Dados reais após a postagem: data, agência, valor tarifado, peso e dimensões tarifados, adicionais. **Só funciona para objeto já postado** (statusAtual = 3); em homologação a postagem física não ocorre, então é esperado erro ou resposta vazia."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  console.log(j.codigoObjeto, '|', j.codigoServico, j.nomeServico, '| postado em', j.dataPostagem, '| valor tarifado:', j.valorAtendimento, '| peso tarifado:', j.pesoTarifadoObjeto);",
+                  "  (j.listaServicoAdicional || []).forEach(a => console.log('  adicional', a.codigoServicoAdicional, '→', a.valor, a.tipoComposicao || ''));",
+                  "} else { console.log('Resposta (objeto provavelmente ainda não postado):', pm.response.text()); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12.2 Consultar postagem do objeto PAC",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/postada?codigoObjeto={{codigoObjetoPac}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "postada"
+              ],
+              "query": [
+                {
+                  "key": "codigoObjeto",
+                  "value": "{{codigoObjetoPac}}"
+                }
+              ]
+            },
+            "description": "Igual à 12.1, para o objeto PAC."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  console.log(j.codigoObjeto, '|', j.codigoServico, j.nomeServico, '| postado em', j.dataPostagem, '| valor tarifado:', j.valorAtendimento, '| peso tarifado:', j.pesoTarifadoObjeto);",
+                  "  (j.listaServicoAdicional || []).forEach(a => console.log('  adicional', a.codigoServicoAdicional, '→', a.valor, a.tipoComposicao || ''));",
+                  "} else { console.log('Resposta (objeto provavelmente ainda não postado):', pm.response.text()); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13 - Cancelamento de pré-postagem (síncrono)",
+      "description": "Arquivo correios-13-prepostagem-cancelar-api.md. Cada cancelamento usa uma pré-postagem criada só para isso, sem afetar as das pastas 06 a 09.",
+      "item": [
+        {
+          "name": "13.1 Criar pré-postagem PAC para cancelar por id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Cria uma pré-postagem só para o teste de cancelamento. Grava `idPrePostagemCancelarPorId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\",\n      \"regiao\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoPac}}\",\n  \"listaServicoAdicional\": [\n    {\n      \"codigoServicoAdicional\": \"{{adicionalVdPac}}\",\n      \"valorDeclarado\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0007\",\n  \"logisticaReversa\": \"N\",\n  \"prazoPostagem\": \"{{prazoPostagem}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemCancelarPorId', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoCancelarPorId', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13.2 Cancelar pré-postagem pelo id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/{{idPrePostagemCancelarPorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "{{idPrePostagemCancelarPorId}}"
+              ]
+            },
+            "description": "DELETE sem corpo. Resposta esperada: `{ resultadoCancelamento, mensagem, idRecibo }`. Irreversível."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  console.log('resultadoCancelamento:', j.resultadoCancelamento, '| mensagem:', j.mensagem, '| idRecibo:', j.idRecibo);",
+                  "  if (j.idRecibo) pm.collectionVariables.set('reciboCancelamentoSincrono', j.idRecibo);",
+                  "} else { console.log('Erro:', pm.response.text()); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13.3 Criar pré-postagem PAC para cancelar por código do objeto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Grava `codigoObjetoCancelarPorObjeto`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\",\n      \"regiao\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoPac}}\",\n  \"listaServicoAdicional\": [\n    {\n      \"codigoServicoAdicional\": \"{{adicionalVdPac}}\",\n      \"valorDeclarado\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0008\",\n  \"logisticaReversa\": \"N\",\n  \"prazoPostagem\": \"{{prazoPostagem}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemCancelarPorObjeto', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoCancelarPorObjeto', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13.4 Cancelar pré-postagem pelo código do objeto",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/objeto/{{codigoObjetoCancelarPorObjeto}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "objeto",
+                "{{codigoObjetoCancelarPorObjeto}}"
+              ]
+            },
+            "description": "DELETE sem corpo, pelo código de rastreio (13 caracteres, sem espaços)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  console.log('resultadoCancelamento:', j.resultadoCancelamento, '| mensagem:', j.mensagem, '| idRecibo:', j.idRecibo);",
+                  "  if (j.idRecibo) pm.collectionVariables.set('reciboCancelamentoSincrono', j.idRecibo);",
+                  "} else { console.log('Erro:', pm.response.text()); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13.5 Cancelar de novo a mesma pré-postagem (teste negativo)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/{{idPrePostagemCancelarPorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "{{idPrePostagemCancelarPorId}}"
+              ]
+            },
+            "description": "Repete o cancelamento de 13.2 para registrar a resposta da API quando a pré-postagem já está cancelada (esperado: erro)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Erro esperado (pré-postagem já cancelada)', () => pm.expect(pm.response.code).to.be.at.least(400));",
+                  "console.log(pm.response.code, pm.response.text());"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Datas dinâmicas no formato dd/MM/yyyy",
+              "const f = x => String(x).padStart(2, '0');",
+              "const fmt = d => `${f(d.getDate())}/${f(d.getMonth() + 1)}/${d.getFullYear()}`;",
+              "const somaDias = n => { const d = new Date(); d.setDate(d.getDate() + n); return d; };",
+              "pm.collectionVariables.set('prazoPostagem', fmt(somaDias(14)));          // padrão da API: criação + 14 dias",
+              "pm.collectionVariables.set('dataValidadeLogReversa', fmt(somaDias(10)));  // validade da autorização de postagem reversa"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Emissão de DCe (declaração de conteúdo eletrônica)",
+      "description": "Arquivo correios-14-prepostagem-dce-api.md. 14.1 a 14.4: DCe emitida pelos Correios + impressão da DACE. 14.5 e 14.6: chave de documento fiscal informada depois.",
+      "item": [
+        {
+          "name": "14.1 Criar pré-postagem SEDEX com emiteDCe = S",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Igual à 6.1, com `emiteDCe: \"S\"` — os Correios emitem a DCe a partir de `itensDeclaracaoConteudo`. Grava `idPrePostagemDce` e `codigoObjetoDce`. Confira `statusAtual` e `motivoCancelamento` no Console.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\",\n      \"regiao\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoSedex}}\",\n  \"listaServicoAdicional\": [\n    {\n      \"codigoServicoAdicional\": \"{{adicionalVdSedex}}\",\n      \"valorDeclarado\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0009\",\n  \"logisticaReversa\": \"N\",\n  \"prazoPostagem\": \"{{prazoPostagem}}\",\n  \"emiteDCe\": \"S\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemDce', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoDce', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "console.log('emiteDCe:', j.emiteDCe, '| motivoCancelamento:', j.motivoCancelamento || '(vazio)');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14.2 Imprimir DACE completa (PDF) - tipo C",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/dce/dace/impressao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "dce",
+                "dace",
+                "impressao"
+              ]
+            },
+            "description": "Resposta esperada: `{ objetos, dados }`, com `dados` = PDF em Base64 (aba **Visualize**). Se falhar logo após a 14.1, aguarde e tente de novo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idsPrePostagens\": [\n    \"{{idPrePostagemDce}}\"\n  ],\n  \"tipoDace\": \"C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code !== 200) { console.log('Erro:', pm.response.text()); }",
+                  "else {",
+                  "  const j = pm.response.json();",
+                  "  const d = j.dados || '';",
+                  "  console.log('Objetos:', JSON.stringify(j.objetos), '| tamanho de dados:', d.length, '| início:', d.substring(0, 60));",
+                  "  if (d.startsWith('JVBER')) pm.visualizer.set(`<embed src=\"data:application/pdf;base64,{{pdf}}\" type=\"application/pdf\" width=\"100%\" height=\"800px\"/>`, { pdf: d });",
+                  "  else pm.visualizer.set('<pre>{{txt}}</pre>', { txt: d });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14.3 Imprimir DACE resumida (PDF) - tipo R",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/dce/dace/impressao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "dce",
+                "dace",
+                "impressao"
+              ]
+            },
+            "description": "Mesmo objeto, identificado pelo código do objeto.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigosObjetos\": [\n    \"{{codigoObjetoDce}}\"\n  ],\n  \"tipoDace\": \"R\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code !== 200) { console.log('Erro:', pm.response.text()); }",
+                  "else {",
+                  "  const j = pm.response.json();",
+                  "  const d = j.dados || '';",
+                  "  console.log('Objetos:', JSON.stringify(j.objetos), '| tamanho de dados:', d.length, '| início:', d.substring(0, 60));",
+                  "  if (d.startsWith('JVBER')) pm.visualizer.set(`<embed src=\"data:application/pdf;base64,{{pdf}}\" type=\"application/pdf\" width=\"100%\" height=\"800px\"/>`, { pdf: d });",
+                  "  else pm.visualizer.set('<pre>{{txt}}</pre>', { txt: d });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14.4 Imprimir DACE térmica (texto) - tipo T",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/dce/dace/impressao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "dce",
+                "dace",
+                "impressao"
+              ]
+            },
+            "description": "No tipo T, `dados` deve trazer texto para impressão direta em impressora térmica (formato a confirmar).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idsPrePostagens\": [\n    \"{{idPrePostagemDce}}\"\n  ],\n  \"tipoDace\": \"T\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code !== 200) { console.log('Erro:', pm.response.text()); }",
+                  "else {",
+                  "  const j = pm.response.json();",
+                  "  const d = j.dados || '';",
+                  "  console.log('Objetos:', JSON.stringify(j.objetos), '| tamanho de dados:', d.length, '| início:', d.substring(0, 60));",
+                  "  if (d.startsWith('JVBER')) pm.visualizer.set(`<embed src=\"data:application/pdf;base64,{{pdf}}\" type=\"application/pdf\" width=\"100%\" height=\"800px\"/>`, { pdf: d });",
+                  "  else pm.visualizer.set('<pre>{{txt}}</pre>', { txt: d });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14.5 Criar pré-postagem SEDEX sem DCe (para informar a chave depois)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens"
+              ]
+            },
+            "description": "Grava `codigoObjetoChaveFiscal`, usado na 14.6.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remetente\": {\n    \"nome\": \"{{lojaNome}}\",\n    \"dddCelular\": \"{{lojaDdd}}\",\n    \"celular\": \"{{lojaCelular}}\",\n    \"email\": \"{{lojaEmail}}\",\n    \"cpfCnpj\": \"{{cnpj}}\",\n    \"endereco\": {\n      \"cep\": \"{{remetenteCep}}\",\n      \"logradouro\": \"{{remetenteLogradouro}}\",\n      \"numero\": \"{{remetenteNumero}}\",\n      \"complemento\": \"{{remetenteComplemento}}\",\n      \"bairro\": \"{{remetenteBairro}}\",\n      \"cidade\": \"{{remetenteCidade}}\",\n      \"uf\": \"{{remetenteUf}}\"\n    }\n  },\n  \"destinatario\": {\n    \"nome\": \"{{clienteNome}}\",\n    \"dddCelular\": \"{{clienteDdd}}\",\n    \"celular\": \"{{clienteCelular}}\",\n    \"email\": \"{{clienteEmail}}\",\n    \"cpfCnpj\": \"{{clienteCpf}}\",\n    \"endereco\": {\n      \"cep\": \"{{destinatarioCep}}\",\n      \"logradouro\": \"{{destinatarioLogradouro}}\",\n      \"numero\": \"{{destinatarioNumero}}\",\n      \"complemento\": \"{{destinatarioComplemento}}\",\n      \"bairro\": \"{{destinatarioBairro}}\",\n      \"cidade\": \"{{destinatarioCidade}}\",\n      \"uf\": \"{{destinatarioUf}}\",\n      \"regiao\": \"{{destinatarioUf}}\"\n    }\n  },\n  \"codigoServico\": \"{{servicoSedex}}\",\n  \"listaServicoAdicional\": [\n    {\n      \"codigoServicoAdicional\": \"{{adicionalVdSedex}}\",\n      \"valorDeclarado\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"itensDeclaracaoConteudo\": [\n    {\n      \"conteudo\": \"{{conteudoItem}}\",\n      \"quantidade\": \"1\",\n      \"valor\": \"{{valorDeclarado}}\"\n    }\n  ],\n  \"pesoInformado\": \"{{pesoGramas}}\",\n  \"codigoFormatoObjetoInformado\": \"2\",\n  \"alturaInformada\": \"{{alturaCm}}\",\n  \"larguraInformada\": \"{{larguraCm}}\",\n  \"comprimentoInformado\": \"{{comprimentoCm}}\",\n  \"cienteObjetoNaoProibido\": \"1\",\n  \"modalidadePagamento\": \"2\",\n  \"observacao\": \"Teste de homologacao\",\n  \"pedidoExternoOrigem\": \"PED-TESTE-0010\",\n  \"logisticaReversa\": \"N\",\n  \"prazoPostagem\": \"{{prazoPostagem}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
+                  "pm.collectionVariables.set('idPrePostagemChaveFiscal', j.id || '');",
+                  "pm.collectionVariables.set('codigoObjetoChaveFiscal', j.codigoObjeto || '');",
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14.6 Atualizar pré-postagem com chave de documento fiscal",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/prepostagem/v1/prepostagens/dce",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "prepostagem",
+                "v1",
+                "prepostagens",
+                "dce"
+              ]
+            },
+            "description": "Informa a chave (NF-e ou DCe) de 44 dígitos. **`chaveDocumentoFiscal` é fictícia** — com ela é esperado erro de validação; troque por uma chave real para testar o sucesso.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoObjeto\": \"{{codigoObjetoChaveFiscal}}\",\n  \"chaveNFe\": \"{{chaveDocumentoFiscal}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log(pm.response.code, pm.response.text() || '(sem corpo)');"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Datas dinâmicas no formato dd/MM/yyyy",
+              "const f = x => String(x).padStart(2, '0');",
+              "const fmt = d => `${f(d.getDate())}/${f(d.getMonth() + 1)}/${d.getFullYear()}`;",
+              "const somaDias = n => { const d = new Date(); d.setDate(d.getDate() + n); return d; };",
+              "pm.collectionVariables.set('prazoPostagem', fmt(somaDias(14)));          // padrão da API: criação + 14 dias",
+              "pm.collectionVariables.set('dataValidadeLogReversa', fmt(somaDias(10)));  // validade da autorização de postagem reversa"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

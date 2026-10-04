@@ -1,0 +1,5 @@
+# Quebras de linha LF em todos os sistemas (ZPL e snapshots dependem dos bytes exatos)
+* text=auto eol=lf
+
+# Fora do pacote distribuído pelo Composer/Packagist
+/doc export-ignore
