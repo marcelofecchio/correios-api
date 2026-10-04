@@ -1,0 +1,17 @@
+{
+    "id": "PRnR3Wm0pDT02bN0kuyAdP0A",
+    "codigoObjeto": "AB043180865BR",
+    "codigoServico": "03220",
+    "servico": "SEDEX CONTRATO AG",
+    "statusAtual": 2,
+    "descStatusAtual": "PREPOSTADO",
+    "prazoPostagem": "2026-10-18T23:59:59",
+    "pesoInformado": "800",
+    "listaServicoAdicional": [
+        {
+            "codigoServicoAdicional": "019",
+            "valorDeclarado": "250.00",
+            "siglaServicoAdicional": "VD"
+        }
+    ]
+}

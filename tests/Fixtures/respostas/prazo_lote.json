@@ -1,0 +1,14 @@
+[
+    {
+        "coProduto": "03220",
+        "nuRequisicao": "1",
+        "prazoEntrega": 1,
+        "dataMaxima": "2026-10-06T23:59:59"
+    },
+    {
+        "coProduto": "03298",
+        "nuRequisicao": "2",
+        "prazoEntrega": 5,
+        "dataMaxima": "2026-10-10T23:59:59"
+    }
+]

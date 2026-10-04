@@ -1,0 +1,8 @@
+{
+    "causa": "ApiNegocioRuntimeException: O objeto consultado não possui o serviço AR Convencional 001 associado.",
+    "date": "2026-09-27T13:25:03",
+    "msgs": [
+        "O objeto consultado não possui o serviço AR Convencional 001 associado."
+    ],
+    "path": "/prepostagem/v1/prepostagens/avisorecebimento/PRxxxxxxxxxxxxxxxxxxxxxx"
+}

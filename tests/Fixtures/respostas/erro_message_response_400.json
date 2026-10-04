@@ -1,0 +1,10 @@
+{
+    "msgs": [
+        "CEP de destino inválido."
+    ],
+    "date": "2026-10-04T10:30:00",
+    "method": "GET",
+    "path": "/preco/v1/nacional/03220",
+    "causa": "ApiNegocioRuntimeException: CEP de destino inválido.",
+    "stackTrace": null
+}

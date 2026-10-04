@@ -1,0 +1,51 @@
+{
+    "versao": "3.5.49",
+    "quantidade": 1,
+    "objetos": [
+        {
+            "codObjeto": "DG049186226BR",
+            "tipoPostal": {
+                "sigla": "DG",
+                "nome": "SEDEX",
+                "categoria": "ENCOMENDA"
+            },
+            "dtPrevista": "2026-10-07T23:59:59",
+            "eventos": [
+                {
+                    "codigo": "BDE",
+                    "tipo": "01",
+                    "dtHrCriado": "2026-10-07T10:15:00",
+                    "descricao": "Objeto entregue ao destinatário",
+                    "unidade": {
+                        "nome": "CDD Centro",
+                        "tipo": "CDD",
+                        "endereco": {
+                            "cidade": "SÃO PAULO",
+                            "uf": "SP"
+                        }
+                    }
+                },
+                {
+                    "codigo": "PO",
+                    "tipo": "01",
+                    "dtHrCriado": "2026-10-05T14:32:00",
+                    "descricao": "Objeto postado",
+                    "unidade": {
+                        "nome": "AC Paulista",
+                        "endereco": {
+                            "cidade": "SÃO PAULO",
+                            "uf": "SP"
+                        }
+                    },
+                    "unidadeDestino": {
+                        "nome": "CTE Vila Maria",
+                        "endereco": {
+                            "cidade": "SÃO PAULO",
+                            "uf": "SP"
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

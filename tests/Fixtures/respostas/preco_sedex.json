@@ -1,0 +1,22 @@
+{
+    "coProduto": "03220",
+    "pcBase": "15,32",
+    "pcBaseGeral": "15,32",
+    "peVariacao": "0,0000",
+    "pcReferencia": "15,32",
+    "vlBaseCalculoImposto": "19,92",
+    "inPesoCubico": "N",
+    "psCobrado": "1000",
+    "servicoAdicional": [
+        {
+            "coServAdicional": "019",
+            "tpServAdicional": "V",
+            "pcServicoAdicional": "4,60"
+        }
+    ],
+    "peAdValorem": "0,0200",
+    "pcFaixa": "15,32",
+    "pcProduto": "15,32",
+    "pcTotalServicosAdicionais": "4,60",
+    "pcFinal": "19,92"
+}

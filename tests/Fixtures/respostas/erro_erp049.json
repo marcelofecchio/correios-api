@@ -1,0 +1,9 @@
+{
+    "msgs": [
+        "ERP-049: Servico adicional obrigatorio nao informado (016)."
+    ],
+    "date": "2026-09-27T11:02:13",
+    "method": "GET",
+    "path": "/preco/v1/nacional/03247",
+    "causa": "ApiNegocioRuntimeException"
+}

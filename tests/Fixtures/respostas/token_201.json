@@ -1,0 +1,46 @@
+{
+    "ambiente": "HOMOLOGACAO",
+    "id": "11222333000181",
+    "ip": "127.0.0.1",
+    "perfil": "PJ",
+    "cnpj": "11222333000181",
+    "cartaoPostagem": {
+        "numero": "0012345678",
+        "contrato": "9912345678",
+        "dr": 20,
+        "api": [
+            27,
+            34,
+            35,
+            36,
+            37,
+            41,
+            76,
+            78,
+            83,
+            87,
+            566,
+            586,
+            587
+        ]
+    },
+    "api": [
+        27,
+        34,
+        35,
+        36,
+        37,
+        41,
+        76,
+        78,
+        83,
+        87,
+        566,
+        586,
+        587
+    ],
+    "emissao": "2026-10-04T10:26:51",
+    "expiraEm": "2026-10-05T10:26:51",
+    "zoneOffset": "-03:00",
+    "token": "eyJhbGciOiJSUzUxMiJ9.token-ficticio.assinatura"
+}

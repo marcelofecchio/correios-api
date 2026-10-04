@@ -1,0 +1,21 @@
+{
+    "versao": "3.5.49",
+    "quantidade": 2,
+    "objetos": [
+        {
+            "codObjeto": "AB043180865BR",
+            "eventos": [
+                {
+                    "codigo": "PO",
+                    "tipo": "01",
+                    "dtHrCriado": "2026-10-05T14:32:00",
+                    "descricao": "Objeto postado"
+                }
+            ]
+        },
+        {
+            "codObjeto": "AK039775832BR",
+            "mensagem": "SRO-020: Objeto não encontrado na base de dados dos Correios."
+        }
+    ]
+}

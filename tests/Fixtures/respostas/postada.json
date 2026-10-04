@@ -1,0 +1,26 @@
+{
+    "id": "123456",
+    "numeroCartaoPostagem": 12345678,
+    "cepAgencia": "01310970",
+    "cepDestino": "01001000",
+    "dataPostagem": "2026-10-05",
+    "dataHoraAtendimento": "2026-10-05T14:32:00",
+    "valorAtendimento": 21.5,
+    "codigoObjeto": "AB043180865BR",
+    "codigoServico": "03220",
+    "nomeServico": "SEDEX CONTRATO AG",
+    "alturaObjeto": "10",
+    "comprimentoObjeto": "30",
+    "larguraObjeto": "20",
+    "diametroObjeto": "0",
+    "pesoObjeto": "820",
+    "pesoTarifadoObjeto": "1000",
+    "valorDeclaradoObjeto": "250.00",
+    "listaServicoAdicional": [
+        {
+            "codigoServicoAdicional": "019",
+            "valor": 4.6,
+            "tipoComposicao": "V"
+        }
+    ]
+}

@@ -1,0 +1,9 @@
+{
+    "coProduto": "03220",
+    "prazoEntrega": 1,
+    "dataMaxima": "2026-10-06T23:59:59",
+    "entregaDomiciliar": "S",
+    "entregaSabado": "S",
+    "entregaDomingo": "N",
+    "msgPrazo": "Prazo calculado"
+}

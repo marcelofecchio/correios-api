@@ -1,0 +1,22 @@
+{
+    "itens": [
+        {
+            "codigo": "03220",
+            "descricao": "SEDEX CONTRATO AG",
+            "coSegmento": "1",
+            "descSegmento": "ENCOMENDAS"
+        },
+        {
+            "codigo": "03298",
+            "descricao": "PAC CONTRATO AG",
+            "coSegmento": "1",
+            "descSegmento": "ENCOMENDAS"
+        }
+    ],
+    "page": {
+        "size": 2,
+        "totalElements": 3,
+        "totalPages": 2,
+        "number": 0
+    }
+}

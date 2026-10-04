@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  qualidade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, gd, json, libxml, mbstring, zlib
+          coverage: pcov
+
+      - name: Instalar dependências
+        run: composer update --no-interaction --no-progress --prefer-dist
+
+      - name: Validar composer.json
+        run: composer validate --strict
+
+      - name: Estilo (PHP-CS-Fixer)
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+      - name: Análise estática (PHPStan)
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+      - name: Testes e cobertura (Pest)
+        run: vendor/bin/pest --coverage --min=90

@@ -1,0 +1,15 @@
+{
+    "situacao": "FALHA",
+    "mensagens": [
+        "Erro ao processar a pré-postagem."
+    ],
+    "sequencias": [
+        {
+            "ordem": "1",
+            "mensagens": [
+                "O preenchimento do Nome do destinatário é obrigatório."
+            ]
+        }
+    ],
+    "prePostagens": []
+}

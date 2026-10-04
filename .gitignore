@@ -1,2 +1,9 @@
 # Credenciais reais: nunca versionar
 /doc/credentials.txt
+/vendor/
+/composer.lock
+/.php-cs-fixer.cache
+/.phpunit.cache/
+/coverage/
+/build/
+.env

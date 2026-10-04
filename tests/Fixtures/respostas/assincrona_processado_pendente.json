@@ -1,0 +1,20 @@
+{
+    "situacao": "PROCESSADO",
+    "mensagens": [],
+    "sequencias": [
+        {
+            "ordem": "1",
+            "mensagens": []
+        }
+    ],
+    "prePostagens": [
+        {
+            "id": "PRVIuNOqSCR0CFd8iKK0y3Rg",
+            "codigoObjeto": "AK039775832BR",
+            "codigoServico": "03298",
+            "statusAtual": 7,
+            "descStatusAtual": "PENDENTE",
+            "prazoPostagem": "2026-10-18T23:59:59"
+        }
+    ]
+}

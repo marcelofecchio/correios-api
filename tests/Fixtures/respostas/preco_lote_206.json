@@ -1,0 +1,15 @@
+[
+    {
+        "coProduto": "03220",
+        "nuRequisicao": "1",
+        "pcProduto": "1.215,32",
+        "pcTotalServicosAdicionais": "0,00",
+        "pcFinal": "1.215,32",
+        "psCobrado": "1000"
+    },
+    {
+        "coProduto": "03247",
+        "nuRequisicao": "2",
+        "txErro": "ERP-049: Servico adicional obrigatorio nao informado (016)."
+    }
+]

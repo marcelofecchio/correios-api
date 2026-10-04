@@ -1,0 +1,37 @@
+[
+    {
+        "codigo": "016",
+        "nome": "LOGISTICA REV SIMULTANEA VOLTA",
+        "sigla": "LRSV",
+        "tipo": "O",
+        "coIndicador": "01",
+        "noIndicador": "Obrigatório",
+        "sgIndicador": "O",
+        "preco": 0.0,
+        "sgPais": "BR",
+        "requeridos": [
+            {
+                "coRequerido": "019",
+                "coSubstituto": null
+            }
+        ],
+        "excludentes": [
+            {
+                "coExcludente": "001"
+            }
+        ],
+        "dtIniVigencia": "2026-08-28T00:00:00",
+        "dtFimVigencia": "2040-12-31T00:00:00"
+    },
+    {
+        "codigo": "019",
+        "nome": "VALOR DECLARADO NACIONAL",
+        "sigla": "VD",
+        "coIndicador": "03",
+        "noIndicador": "Opcional",
+        "sgIndicador": "P",
+        "preco": 0,
+        "vlMinDeclarado": 25.0,
+        "vlMaxDeclarado": 10000.5
+    }
+]
