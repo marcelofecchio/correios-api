@@ -5,6 +5,8 @@
 > **Sequência de testes:** etapa 14 de 14 · Regras gerais (ambientes, autenticação, convenções): `correios-00-instrucoes-gerais.md` · Anterior: `correios-13-prepostagem-cancelar-api.md` · Última etapa
 >
 > **Ainda não testado em homologação:** o conteúdo real de `dados` em cada `tipoDace` e o corpo da resposta 200 do `PATCH` devem ser registrados aqui após o primeiro teste.
+>
+> ✔ **Observado em homologação (04/10/2026):** uma pré-postagem síncrona criada com `emiteDCe: "S"` voltou com `statusAtual = 7` (PENDENTE). A impressão da DACE (`tipoDace: "C"`, por `idsPrePostagens`) respondeu **HTTP 404** com `PPN-376: Não é possível emitir DACE para NF-e, objetos que não estejam prepostados ou sem chave D…` (mensagem registrada só até esse ponto). Por isso a DACE ainda não foi obtida. Antes de imprimi-la, confirme que a pré-postagem está com status 2 (PREPOSTADO).
 
 ## 0. Resumo rápido
 
@@ -272,14 +274,15 @@ Requisição alteração de prepostagem para inclusão de chave de documento fis
 1. **Token:** use o Bearer da API Token (`/v1/autentica/cartaopostagem`) e reutilize-o até perto de `expiraEm`; em 401, renove uma vez e repita.
 2. **Escolha do caminho:** venda com NF-e → informe a chave (na criação ou pelo `PATCH`). Envio sem nota → DCe; deixe os Correios emitirem (`emiteDCe: "S"`) ou emita no seu sistema e informe a chave pelo `PATCH`. Não use os dois caminhos para o mesmo objeto.
 3. **A DACE só existe para DCe "gerada internamente":** o endpoint de impressão atende pré-postagens criadas com `emiteDCe: "S"`. Para objetos com NF-e ou com DCe emitida fora dos Correios, espere erro — o documento auxiliar, nesses casos, é o do emissor.
-4. **Falha na geração da DCe pode cancelar a pré-postagem:** a resposta da pré-postagem tem o campo `motivoCancelamento` ("Erro em geração de DCe que causou eventual cancelamento de prepostagem"). Depois de criar com `emiteDCe: "S"`, confira `statusAtual` e `motivoCancelamento` antes de pedir a DACE e o rótulo. Como a geração pode não ser imediata, se a impressão falhar logo após a criação, aguarde e tente de novo com intervalo crescente.
-5. **Dados da declaração:** com `emiteDCe: "S"`, preencha `itensDeclaracaoConteudo` com descrições reais, quantidades e valores unitários corretos, e CPF/CNPJ e endereços completos de remetente e destinatário — são os dados que vão para o documento fiscal.
-6. **Tratamento de `dados` por tipo:**
+4. ✔ **Status exigido:** a DACE só é emitida para pré-postagem **pré-postada** (status 2). Com status 7 a API responde HTTP **404** `PPN-376` — um erro de regra de negócio com código 404, e não "recurso inexistente".
+5. **Falha na geração da DCe pode cancelar a pré-postagem:** a resposta da pré-postagem tem o campo `motivoCancelamento` ("Erro em geração de DCe que causou eventual cancelamento de prepostagem"). Depois de criar com `emiteDCe: "S"`, confira `statusAtual` e `motivoCancelamento` antes de pedir a DACE e o rótulo. Como a geração pode não ser imediata, se a impressão falhar logo após a criação, aguarde e tente de novo com intervalo crescente.
+6. **Dados da declaração:** com `emiteDCe: "S"`, preencha `itensDeclaracaoConteudo` com descrições reais, quantidades e valores unitários corretos, e CPF/CNPJ e endereços completos de remetente e destinatário — são os dados que vão para o documento fiscal.
+7. **Tratamento de `dados` por tipo:**
    - `R` e `C` → decodifique de Base64 para bytes, valide que começam com `%PDF` e grave/exiba como `.pdf` (mesma lógica do rótulo, arquivo 09);
    - `T` → texto para envio direto à impressora térmica. **Não** trate como PDF. Antes de fixar o código, verifique em teste se o texto vem puro ou também em Base64.
-7. **Vários objetos:** a requisição aceita listas, mas a resposta tem um único campo `dados`. Use `objetos` para saber quais entraram na impressão; para um arquivo por objeto, faça uma requisição por objeto.
-8. **`PATCH` — validação local:** código do objeto no padrão `^[A-Z]{2}\d{9}[A-Z]{2}$` (sem espaços); chave com 44 dígitos numéricos e dígito verificador válido; `numeroNotaFiscal` com até 12 dígitos. Envie apenas dígitos, sem pontos ou espaços.
-9. **`PATCH` — momento:** atualize a chave **antes da postagem**, enquanto a pré-postagem está em `statusAtual = 2`. A especificação não informa se a chave pode ser trocada depois de informada nem se é aceita após a postagem — confirme em teste e trate o erro.
-10. **Resposta do `PATCH`:** como não há corpo definido, considere sucesso pelo HTTP 200 e registre a chave no seu sistema junto do objeto.
-11. **Ordem recomendada na expedição:** criar pré-postagem → (DCe pronta) imprimir DACE → solicitar e imprimir rótulo → postar. O objeto deve seguir com o documento fiscal (DACE ou DANFE).
-12. **Ambientes:** mantenha a URL base configurável (homologação × produção); ids, códigos e documentos de um ambiente não valem no outro.
+8. **Vários objetos:** a requisição aceita listas, mas a resposta tem um único campo `dados`. Use `objetos` para saber quais entraram na impressão; para um arquivo por objeto, faça uma requisição por objeto.
+9. **`PATCH` — validação local:** código do objeto no padrão `^[A-Z]{2}\d{9}[A-Z]{2}$` (sem espaços); chave com 44 dígitos numéricos e dígito verificador válido; `numeroNotaFiscal` com até 12 dígitos. Envie apenas dígitos, sem pontos ou espaços.
+10. **`PATCH` — momento:** atualize a chave **antes da postagem**, enquanto a pré-postagem está em `statusAtual = 2`. A especificação não informa se a chave pode ser trocada depois de informada nem se é aceita após a postagem — confirme em teste e trate o erro.
+11. **Resposta do `PATCH`:** como não há corpo definido, considere sucesso pelo HTTP 200 e registre a chave no seu sistema junto do objeto.
+12. **Ordem recomendada na expedição:** criar pré-postagem → (DCe pronta) imprimir DACE → solicitar e imprimir rótulo → postar. O objeto deve seguir com o documento fiscal (DACE ou DANFE).
+13. **Ambientes:** mantenha a URL base configurável (homologação × produção); ids, códigos e documentos de um ambiente não valem no outro.

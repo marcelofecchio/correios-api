@@ -124,7 +124,7 @@ Testes realizados, com `tipoRotulo: "P"`, `formatoRotulo: "ET"`, `imprimeRemeten
 
 Cada solicitação gera um **novo** `idRecibo`, mesmo repetindo uma pré-postagem; a etiqueta repetida mantém o mesmo código do objeto (ver arquivo 09).
 
-> ⚠ **Status da pré-postagem — ✔ observado em homologação:** esta solicitação é aceita (HTTP 200 com `idRecibo`) mesmo quando a pré-postagem está em `statusAtual = 7` (PENDENTE), mas o download desse recibo falha com `PPN-288` — e o recibo **continua inválido** depois que o status muda para `2`. Solicite o rótulo **somente com `statusAtual = 2`**; se já tiver solicitado antes, faça uma nova solicitação. Isso ocorre principalmente com pré-postagens criadas pela via assíncrona (arquivo 07).
+> ⚠ **Status da pré-postagem — ✔ observado em homologação:** esta solicitação é aceita (HTTP 200 com `idRecibo`) mesmo quando a pré-postagem está em `statusAtual = 7` (PENDENTE), mas o download desse recibo falha com `PPN-288` — e o recibo **continua inválido** depois que o status muda para `2`. Solicite o rótulo **somente com `statusAtual = 2`**; se já tiver solicitado antes, faça uma nova solicitação. Isso ocorre principalmente com pré-postagens criadas pela via assíncrona (arquivo 07). ✔ Em 04/10/2026 a criação **síncrona** também devolveu status 7. A solicitação do rótulo foi aceita de novo (`{"idRecibo": "..."}`, 36 caracteres), e o download respondeu PPN-288 **com HTTP 200** (arquivo 09).
 
 > **Observação do teste:** a lista `idsPrePostagem` foi enviada com um segundo item **vazio** (a pré-postagem PAC ainda não tinha sido criada) e a API aceitou, gerando só a etiqueta válida. Não dependa desse comportamento: envie apenas ids preenchidos.
 

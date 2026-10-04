@@ -4,7 +4,7 @@
 >
 > **Sequência de testes:** etapa 13 de 14 · Regras gerais (ambientes, autenticação, convenções): `correios-00-instrucoes-gerais.md` · Anterior: `correios-12-prepostagem-postada-api.md` · Próxima: `correios-14-prepostagem-dce-api.md`
 >
-> **Ainda não testado em homologação:** os valores reais de `resultadoCancelamento` e `mensagem` devem ser registrados aqui após o primeiro teste.
+> **Atualizado em 04/10/2026** com respostas reais do cancelamento **por id** (seção 3.3, ✔ Observado em homologação). O cancelamento por código do objeto ainda não foi testado.
 
 ## 0. Resumo rápido
 
@@ -131,6 +131,26 @@ Nenhum campo tem descrição ou obrigatoriedade na especificação.
 | `causa` | string | A causa da mensagem. |
 | `stackTrace` | string | Detalhe da mensagem. |
 
+### 3.3 ✔ Respostas observadas em homologação (04/10/2026) — `DELETE /v1/prepostagens/{id}`
+
+**Sucesso (HTTP 200):** em três cancelamentos, a resposta trouxe **só** `resultadoCancelamento`, sem `mensagem` e sem `idRecibo`:
+
+```json
+{"resultadoCancelamento": "Cancelamento realizado com sucesso!"}
+```
+
+- As pré-postagens canceladas estavam com `statusAtual = 7` (PENDENTE), recém-criadas pela via síncrona. Ou seja, nesses testes o status 7 **não impediu** o cancelamento.
+- Depois do cancelamento, o rastreamento do objeto mostrou o evento "Etiqueta cancelada pelo sistema de captação".
+
+**Pré-postagem já cancelada (HTTP 400, `MessageResponse`):**
+
+```text
+PPN-145-5: Operação não realizada! A pré-postagem está com o status Cancelado. Somente poderão ser canceladas as pré-postagens que estejam com status igual a pré-postado.
+```
+
+- O código vem com sufixo (`PPN-145-5`). Ao extrair o código da mensagem, aceite o formato `LETRAS-NÚMEROS(-NÚMEROS)`.
+- A pré-postagem desse teste tinha sido cancelada automaticamente pelos Correios, sem pedido do cliente (ver arquivo 07, seção 7, item 11). Trate esse erro como "já cancelada", e não como falha da aplicação.
+
 ## 4. JSON Schema da resposta 200
 
 ```json
@@ -156,9 +176,9 @@ Nenhum campo tem descrição ou obrigatoriedade na especificação.
 ## 5. Orientações de implementação
 
 1. **Token:** use o Bearer da API Token (`/v1/autentica/cartaopostagem`) e reutilize-o até perto de `expiraEm`; em 401, renove uma vez e repita. O cancelamento deve ser feito com as credenciais do mesmo contrato/cartão que criou a pré-postagem.
-2. **Quando é possível cancelar:** somente pré-postagens ainda **não postadas**. Com `statusAtual = 3` (POSTADO), `4` (EXPIRADO) ou `5` (CANCELADO), espere erro. Para pré-postagens criadas pela via assíncrona, aguarde sair de `7` (PENDENTE) antes de cancelar.
-3. **Não confie só no HTTP 200:** leia `resultadoCancelamento` e `mensagem` para confirmar que o cancelamento foi efetivado, e só então marque como cancelada no seu sistema. Como os valores possíveis de `resultadoCancelamento` não são documentados, registre (log) a primeira resposta real antes de fixar a regra.
-4. **`idRecibo`:** guarde o valor retornado junto da pré-postagem, como comprovante do cancelamento. A especificação não diz se ele pode ser consultado em `GET /v1/prepostagens/canceladas/assincrona/{idRecibo}` — a confirmar em teste.
+2. **Quando é possível cancelar:** somente pré-postagens ainda **não postadas**. Com `statusAtual = 3` (POSTADO), `4` (EXPIRADO) ou `5` (CANCELADO), espere erro (✔ com status 5: HTTP 400, `PPN-145-5`). ✔ Em 04/10/2026 pré-postagens síncronas com status `7` (PENDENTE) foram canceladas sem erro. O comportamento com status 7 na via assíncrona não foi testado.
+3. **Não confie só no HTTP 200:** leia `resultadoCancelamento` para confirmar que o cancelamento foi efetivado, e só então marque como cancelada no seu sistema. O único valor observado é `"Cancelamento realizado com sucesso!"` (texto livre, não um código); outros valores não são documentados.
+4. **`idRecibo`:** guarde o valor se ele vier, como comprovante do cancelamento. ✔ Nos testes de 04/10/2026 ele **não veio** na resposta do cancelamento síncrono.
 5. **Irreversível:** não há endpoint para desfazer o cancelamento. Para enviar o objeto depois, crie uma nova pré-postagem (novo `id` e novo código de objeto). Peça confirmação ao usuário antes de cancelar.
 6. **Rótulo já impresso:** após o cancelamento a etiqueta não deve mais ser usada; oriente o descarte e bloqueie a reimpressão no sistema.
 7. **Idempotência:** se a chamada falhar por rede/tempo esgotado, consulte o status antes de repetir; um segundo `DELETE` para uma pré-postagem já cancelada tende a retornar erro, que deve ser tratado como "já cancelada" e não como falha.

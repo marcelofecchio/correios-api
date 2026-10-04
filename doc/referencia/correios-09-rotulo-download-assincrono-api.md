@@ -111,11 +111,12 @@ Pré-postagem criada pela via **assíncrona** (`POST /v1/prepostagens/assincrona
 ```
 
 - A validação do status acontece **no download**, não na solicitação: receber `idRecibo` não garante que o PDF será gerado.
-- `Pendente` corresponde a `statusAtual = 7` (PENDENTE). O rótulo só é emitido para pré-postagens fora desse status (as criadas pela via síncrona, com status pré-postado, imprimiram normalmente).
+- `Pendente` corresponde a `statusAtual = 7` (PENDENTE). O rótulo só é emitido para pré-postagens fora desse status. Em 27/09/2026 as pré-postagens criadas pela via síncrona vieram com status pré-postado e imprimiram normalmente; ✔ em 04/10/2026 uma criada pela via **síncrona** veio com status 7 e o download também respondeu PPN-288.
 - O corpo de erro **não** segue o `MessageResponse` (`msgs`): vem como `{ "mensagem": "..." }`, com o código `PPN-xxx` no início. Trate os dois formatos.
+- ✔ **HTTP 200 (observado em 04/10/2026):** o PPN-288 veio com **HTTP 200**, e não com um código de erro. Não confie só no status HTTP: se `dados` não vier, leia `mensagem` e trate como erro.
 - ✔ **Confirmado:** o status Pendente é **transitório**. Alguns minutos depois, nova consulta a `GET /v1/prepostagens/assincrona/{recibo}` mostrou `statusAtual = 2` (PREPOSTADO), e o download do rótulo passou a funcionar.
 - ✔ **Confirmado:** o `idRecibo` obtido enquanto a pré-postagem estava em `7` **fica inutilizado** — mesmo depois de o status mudar para `2`, o download com esse recibo não funciona. É preciso fazer **nova** solicitação (`POST /v1/prepostagens/rotulo/assincrono/pdf`) já com `statusAtual = 2`, e baixar com o **novo** `idRecibo`.
-- Regra prática: só solicite o rótulo quando `statusAtual` for `2`. Se o download retornar PPN-288, descarte aquele `idRecibo`, aguarde o status `2` e solicite o rótulo de novo. O tempo de transição não é documentado (no teste, alguns minutos).
+- Regra prática: só solicite o rótulo quando `statusAtual` for `2`. Se o download retornar PPN-288, descarte aquele `idRecibo`, aguarde o status `2` e solicite o rótulo de novo. O tempo de transição não é documentado (no teste de 27/09/2026, alguns minutos). ✔ Em 04/10/2026 as pré-postagens pendentes de teste não chegaram ao status 2: foram canceladas automaticamente pelos Correios minutos depois (ver arquivo 07, seção 7, item 11).
 
 #### Pontos ainda não observados
 
@@ -232,7 +233,7 @@ Resposta 400/500:
 2. **Guarde o recibo:** salve o `idRecibo` retornado pelo POST junto com as pré-postagens correspondentes, para poder baixar (ou baixar de novo) o PDF depois.
 3. **Consulta com espera:** como a geração é assíncrona, o arquivo pode não estar pronto na primeira chamada. Consulte com intervalo entre as tentativas (ex.: alguns segundos, aumentando progressivamente) e com limite máximo de tentativas; registre o erro se esgotar.
 4. **Decodificação do PDF:** leia `dados`, decodifique de Base64 para bytes e grave como `.pdf` (use `nome` como nome do arquivo ou gere o seu, ex.: `<codigoObjeto>.pdf`). Antes de gravar, valide que os bytes começam com `%PDF` — se não começarem, trate como resposta inesperada e registre o corpo. Não trate `dados` como texto após decodificar (é binário).
-5. **Erros:** exiba ao usuário/log as mensagens de `msgs` (formato `MessageResponse`) **ou** de `mensagem` (formato observado, ex.: `PPN-288` para pré-postagem Pendente). Podem indicar recibo inválido, expirado, ainda não processado ou pré-postagem em status que não permite impressão.
+5. **Erros:** exiba ao usuário/log as mensagens de `msgs` (formato `MessageResponse`) **ou** de `mensagem` (formato observado, ex.: `PPN-288` para pré-postagem Pendente). O PPN-288 pode vir com **HTTP 200**: considere erro toda resposta sem o campo `dados`. Podem indicar recibo inválido, expirado, ainda não processado ou pré-postagem em status que não permite impressão.
 6. **Armazenamento:** salve o PDF baixado (ou o caminho do arquivo) vinculado à pré-postagem, evitando novas chamadas para reimprimir a mesma etiqueta.
 7. **Ambientes:** mantenha a URL base configurável (homologação × produção); recibos de um ambiente não valem no outro. Etiquetas de homologação trazem a marca "Impressão de teste. Não aceitar".
 8. **Exibição/impressão:** para abrir no navegador sem gravar em disco, use `data:application/pdf;base64,<dados>` ou devolva os bytes com `Content-Type: application/pdf`. A etiqueta vem em página A4; para impressora térmica 10×15 cm, solicite o rótulo com `layoutImpressao: LINEAR_100_150` (ver arquivo 08).
@@ -246,7 +247,9 @@ async function baixarRotulo(idRecibo, token) {
   const url = `${process.env.CORREIOS_BASE_URL}/prepostagem/v1/prepostagens/rotulo/download/assincrono/${encodeURIComponent(idRecibo)}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } });
   if (!res.ok) throw new Error(`Download rótulo: HTTP ${res.status} ${await res.text()}`);
-  const { dados, nome } = await res.json();
+  const { dados, nome, mensagem } = await res.json();
+  // O PPN-288 (pré-postagem pendente) pode vir com HTTP 200 e sem "dados"
+  if (!dados) throw new Error(`Download rótulo: ${mensagem || 'resposta sem o campo dados'}`);
   const pdf = Buffer.from(dados, 'base64');
   if (pdf.subarray(0, 4).toString() !== '%PDF') throw new Error('Resposta não contém um PDF válido');
   await writeFile(nome || `rotulo_${idRecibo}.pdf`, pdf);
@@ -264,6 +267,9 @@ def baixar_rotulo(base_url: str, id_recibo: str, token: str) -> str:
                      headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}, timeout=30)
     r.raise_for_status()
     corpo = r.json()
+    # O PPN-288 (pré-postagem pendente) pode vir com HTTP 200 e sem "dados"
+    if not corpo.get("dados"):
+        raise ValueError(corpo.get("mensagem") or "Resposta sem o campo dados")
     pdf = base64.b64decode(corpo["dados"])
     if not pdf.startswith(b"%PDF"):
         raise ValueError("Resposta não contém um PDF válido")

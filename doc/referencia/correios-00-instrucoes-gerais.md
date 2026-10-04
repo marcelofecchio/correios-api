@@ -206,6 +206,23 @@ Padrão de implementação assíncrona: `POST` (recebe id) → consulta periódi
 
 Algumas APIs (ex.: Pedido de Informação) retornam HTTP de sucesso com um **código de negócio** no corpo (`codigoRetorno` / `responseCode`) — sempre inspecione esses campos, item a item, em operações em lote.
 
+✔ **Observado em homologação (04/10/2026) na API Pré-postagem:**
+
+| Situação | HTTP | Corpo |
+|---|:-:|---|
+| Download do rótulo de pré-postagem pendente | **200** | `{"mensagem": "PPN-288: Não é permitido imprimir rótulo de pré-postagem com status igual a Pendente. ..."}` — sem o campo `dados` |
+| Cancelar pré-postagem que não está pré-postada (ex.: já cancelada) | 400 | `MessageResponse` com `PPN-145-5: Operação não realizada! A pré-postagem está com o status Cancelado. ...` |
+| Imprimir DACE de pré-postagem pendente | **404** | `PPN-376: Não é possível emitir DACE para NF-e, objetos que não estejam prepostados ou sem chave D...` |
+| AR sem o adicional 001 | 422 | `MessageResponse` (arquivo 06) |
+
+Consequências para a aplicação:
+
+- **Não confie só no código HTTP:** uma resposta 200 pode trazer um erro. Confira se o campo esperado veio (ex.: `dados` no download do rótulo) e, se não veio, leia `mensagem`/`msgs`.
+- Regras de negócio aparecem com HTTP **400, 404 ou 422**.
+- Os códigos de erro seguem o padrão `LETRAS-NÚMEROS`, às vezes com um sufixo (`PPN-288`, `ERP-049`, `SRO-020`, `PPN-145-5`), sempre no início da mensagem e seguidos de `:`.
+
+> ⚠ **Observação prática (PHP no Windows):** se o PHP não tiver um pacote de autoridades certificadoras configurado (`curl.cainfo` vazio no `php.ini`), as chamadas falham com `cURL error 60: SSL certificate problem: self-signed certificate in certificate chain`, embora a cadeia dos Correios seja válida (DigiCert). Configure `curl.cainfo` (ou `openssl.cafile`) apontando para um pacote de CAs atualizado.
+
 ---
 
 ## 8. URLs base das APIs (homologação)
@@ -245,6 +262,7 @@ A **versão** no caminho (`/v1`, `/v2`, `/v3`) é por recurso; confira no arquiv
 - Não é preciso informar o número do objeto: o sistema o atribui. Se o `codigoObjeto` vier vazio na criação, ele é obtido na emissão do rótulo (comportamento descrito no manual). Uso antecipado de números exige **faixa de etiquetas**, liberada com base na média dos últimos 3 meses de postagem — consulte o saldo antes de pedir nova faixa.
 - **Expiração:** o objeto não postado até `prazoPostagem` passa a `statusAtual = 4` (EXPIRADO). Pela especificação, o padrão é **criação + 14 dias** (máximo 90 dias) quando o campo não é informado; o manual V2.4 cita 7 dias corridos — use o `prazoPostagem` retornado como referência.
 - **Síncrona × assíncrona:** `POST /v1/prepostagens` (síncrona, arquivo 06) para operações unitárias; `POST /v1/prepostagens/assincrona` (arquivo 07) para volume, com consulta do recibo. ✔ Observado em homologação: após `situacao = PROCESSADO`, a pré-postagem assíncrona fica alguns minutos em `statusAtual = 7` (PENDENTE) antes de passar a `2` (PREPOSTADO); o rótulo deve ser solicitado **só depois** do status `2` — um `idRecibo` de rótulo pedido com status `7` falha no download com `PPN-288` e não passa a funcionar depois; é preciso solicitar o rótulo de novo (ver arquivos 07, 08 e 09).
+- ✔ **Observado em homologação (04/10/2026):** a criação **síncrona** também devolveu a pré-postagem com `statusAtual = 7` (PENDENTE) — não presuma o status 2 em nenhuma das vias; confira `statusAtual` antes de pedir o rótulo. Nesse dia, as pré-postagens de teste ficaram pendentes por mais de 2 minutos e foram **canceladas automaticamente** pelos Correios (status 5; evento de rastreamento "Etiqueta cancelada pelo sistema de captação"). Em 27/09/2026 a pré-postagem assíncrona tinha passado de 7 para 2 em alguns minutos. O tempo e o desfecho do status 7 não são documentados.
 - **Rótulo (objetos registrados):** `POST /v1/prepostagens/rotulo/assincrono/pdf` (arquivo 08) com `idsPrePostagem` (ou `codigosObjeto`, em reimpressão) e `tipoRotulo` `P` (padrão) ou `R` (reduzido) → recibo → `GET /v1/prepostagens/rotulo/download/assincrono/{idRecibo}` (arquivo 09). Só pode ser emitido com as **mesmas credenciais** da criação. Objetos simples em lote usam `POST /v1/prepostagens/rotulo/lote/assincrono/pdf` (até **6 ids** por requisição para carta simples, segundo o manual).
 - **Declaração de conteúdo** (`v1/prepostagens/declaracaoconteudo/{ids}`) e **AR** (`v1/prepostagens/avisorecebimento/{ids}`): exigem pré-postagem com status **pré-postado**; retornam HTML.
 - **Consulta:** `GET /v2/prepostagens` é paginada e exige ao menos um parâmetro de identificação (id/código/eTicket) ou combinação de parâmetros.

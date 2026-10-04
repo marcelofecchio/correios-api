@@ -280,6 +280,11 @@ Diferenças em relação ao template antigo: título conforme a Nota Técnica; s
 
 Os limites são estimativas para a largura útil de 740 pontos; ajuste após testar no Labelary.
 
+✔ **Lições da implementação (04/10/2026):**
+
+- **Não corte o fim do endereço:** com o limite de 60 caracteres, um corte simples de `{{emitente_endereco}}` partia o CEP (`... - 90020-0`). Corte primeiro o logradouro e preserve `cidade/UF - CEP`. O mesmo vale para `{{destinatario_endereco_linha2}}`: encurte o bairro e preserve cidade/UF e CEP.
+- **Não junte espaços duplos dos valores já formatados:** o separador de dois espaços em `CNPJ: …  IE: …  UF: …` precisa ser mantido. Limpe só caracteres de controle e quebras de linha (seção 7.4, regra 5).
+
 ### 7.4 Regras
 
 1. **Só para nota autorizada:** com o XML, exigir `protNFe/infProt/cStat = 100` (autorizado o uso) e protocolo preenchido. Nota cancelada, denegada ou sem protocolo → `ErroValidacao`. Confirme com o usuário se outros status (por exemplo, autorização fora de prazo) devem ser aceitos.
@@ -421,9 +426,9 @@ Dados fictícios usados na verificação: emitente "Loja Teste Homologação Com
 - **Posição da chave de acesso:** a fonte consultada cita o canto superior direito; o template novo mantém a posição do sistema antigo.
 - **Conformidade legal:** os requisitos da seção 5 vêm de fonte secundária; a Nota Técnica 2020.004 oficial não foi lida. Posição obrigatória dos campos, tamanhos mínimos e regras para contingência devem ser conferidos nela.
 - **Leitura dos códigos de barras** por leitor físico e **impressão** em impressora térmica.
-- **Template de 300 dpi** — não foi renderizado.
+- ~~Template de 300 dpi~~ — ✔ renderizado no Labelary em 04/10/2026 (12 dpmm, 4 × 6 pol), com escala 1,5 (`^BY2` → `^BY3`). A chave de acesso em Code 128 coube na largura de 1200 pontos. Continua sem teste a impressão física.
 - **Leitura do XML da NF-e** — testada com a venda para pessoa física (`nfe-venda-pf.xml`, real) e a venda para pessoa jurídica (`nfe-venda-pj.xml`, dados fictícios, em 04/10/2026), ambas em emissão normal. Na análise original também foi testada uma devolução para pessoa jurídica, cujo XML não está no projeto. Não foram testados: nota de entrada (`tpNF = 0`), emissão em contingência e destinatário do exterior.
-- **Renderização do template sem itens e valores** — o template foi renderizado no Labelary na versão anterior (com valor total e itens, dados fictícios); depois da retirada desses dois campos, e com os dados dos XML reais, os textos foram conferidos só pelo tamanho (para não enviar dados reais a um serviço externo).
+- ~~Renderização do template sem itens e valores~~ — ✔ renderizado no Labelary em 04/10/2026, em 203 e 300 dpi, com o XML de venda para pessoa física **anonimizado** (dados fictícios) e com o código de envio. Todos os blocos ficaram dentro da etiqueta, sem sobreposição.
 - **Aceitação em fiscalização ou pelos Correios** de uma etiqueta gerada por este template.
 
 Fontes:

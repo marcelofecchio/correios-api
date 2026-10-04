@@ -106,7 +106,9 @@ Accept: application/json
 | `page.totalPages` | integer (int64) | Numero total de páginas |
 | `page.number` | integer (int64) | Numero da página atual |
 
-> **Atenção — possível imprecisão da especificação:** o campo `itens` está declarado como um único objeto `ServicoResponse`, e não como lista. Como o endpoint é paginado e lista os serviços do cartão, o retorno real deve ser uma **lista** de `ServicoResponse`. Confirme em homologação e trate os dois formatos (ver seção 6).
+> **Imprecisão da especificação — ✔ confirmada em homologação (04/10/2026):** o campo `itens` está declarado como um único objeto `ServicoResponse`, mas a resposta real é uma **lista** de `ServicoResponse`. No teste, o cartão tinha **234 serviços em 5 páginas** de 50 (`page`: `{"size": 50, "totalElements": 234, "totalPages": 5, "number": 0}`): percorra todas as páginas antes de concluir que um serviço não está habilitado. Continue tratando os dois formatos por segurança (ver seção 6).
+>
+> ✔ `GET .../servicos/{coServico}` (seção 3) devolveu **um único objeto** `ServicoResponse` (`codigo`, `descricao`, `coSegmento`, `descSegmento`), sem `itens` nem `page`.
 
 ### 2.3 Exemplo de resposta 200 (ilustrativo)
 

@@ -3625,3 +3625,7 @@ Resposta 200:
 8. **AR Digital:** `GET /v1/ar-digital?objetos=A,B` (máx. 10) retorna a imagem do AR quando existir — só se aplica a objetos postados com o serviço de AR Digital.
 9. **Frequência de consulta:** rastreamento não muda a cada minuto — agende atualizações periódicas (ex.: a cada algumas horas) e pare de consultar objetos já entregues ou devolvidos.
 10. **Ambientes:** mantenha a URL base configurável (homologação × produção). Em homologação, os objetos de teste podem não ter eventos reais.
+11. ✔ **Observado em homologação (04/10/2026):**
+    - **Objeto não encontrado:** veio com **HTTP 200** e o objeto na lista `objetos` sem `eventos`, com o campo `mensagem` = `SRO-020: Não localizamos informações para o código informado. Verifique se o código foi digitado corretamente. ...`. Foi o caso do código de exemplo do manual (`DG049186226BR`). Trate `mensagem` como "não encontrado", não como erro HTTP.
+    - **Objetos de pré-postagens de homologação** aparecem no rastreamento com eventos de captação: `Etiqueta emitida` (pré-postagem criada) e `Etiqueta cancelada pelo sistema de captação` (pré-postagem cancelada, inclusive a cancelada automaticamente pelos Correios).
+    - `GET /v1/objetos?codigosObjetos=A&codigosObjetos=B&resultado=U` (parâmetro repetido) funcionou, devolvendo um item por código, inclusive o não encontrado.

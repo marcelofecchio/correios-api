@@ -118,7 +118,7 @@ O manual V2.4 cita `v1/prepostagens/declaracaoconteudo/{ids}` e `v1/prepostagens
   ```
 
   Ou seja: o método `GET` e o caminho estão corretos (a API validou a regra de negócio), e o AR só é emitido para pré-postagens criadas com o adicional **001 - AR Convencional** em `listaServicoAdicional` (ex.: `[{"codigoServicoAdicional":"019","valorDeclarado":"250.00"},{"codigoServicoAdicional":"001"}]`). Emissão com o 001 ainda a confirmar.
-- Erros de regra de negócio desta API podem vir com **HTTP 422** (além de 400), no formato `MessageResponse` (`msgs`, `causa`).
+- Erros de regra de negócio desta API podem vir com **HTTP 422** (além de 400), no formato `MessageResponse` (`msgs`, `causa`). ✔ Em 04/10/2026 também foram observados **HTTP 404** (`PPN-376`, impressão da DACE) e erro com **HTTP 200** (`PPN-288`, download do rótulo) — ver a seção 7 do arquivo 00.
 
 ## 3. Todos os campos da requisição
 
@@ -554,6 +554,17 @@ Preenchido com os exemplos da especificação quando existem; caso contrário, v
 | `codigoObjeto` | Código de rastreio (13 caracteres) — guardar; usado nas APIs SRO Rastro e Webhook |
 | `statusAtual` | `1` PREATENDIDO · `2` PREPOSTADO · `3` POSTADO · `4` EXPIRADO · `5` CANCELADO · `6` ESTORNADO · `7` PENDENTE |
 | `prazoPostagem` | Prazo máximo para postar o objeto na agência |
+
+#### ✔ Resposta observada em homologação (04/10/2026)
+
+Criação síncrona de um SEDEX 03220 com declaração de conteúdo (HTTP 200):
+
+| Item | Observado |
+|---|---|
+| `statusAtual` | **`7` (PENDENTE)**, com `descStatusAtual` — e não `2`, como nos testes de 27/09/2026. Confira o status antes de pedir o rótulo (arquivos 08 e 09). Nesse dia as pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois (ver arquivo 07). |
+| `codigoObjeto` | Preenchido já na criação (ex.: `AB043191231BR`) |
+| `prazoPostagem` | `"2026-10-18T23:59:59"`: data-hora **sem fuso**, criação + 14 dias. Na requisição o campo é `dd/MM/yyyy`; na resposta vem em ISO. |
+| Campos preenchidos | `alturaInformada`, `cienteObjetoNaoProibido`, `codigoFormatoObjetoInformado`, `codigoObjeto`, `codigoServico`, `comprimentoInformado`, `dataHora`, `dataHoraStatusAtual`, `descStatusAtual`, `emiteDCe`, `id`, `idCorreios`, `itensDeclaracaoConteudo`, `larguraInformada`, `logisticaReversa`, `modalidadePagamento`, `numeroCartaoPostagem`, `observacao`, `pesoInformado`, `prazoPostagem`, `sistemaOrigem`, `statusAtual`, `tipoObjeto`, `tipoRotulo`. Os demais campos da seção 6.2 vieram nulos. |
 
 ### 6.2 Resposta 200 — `PrePostagem` (todos os campos)
 

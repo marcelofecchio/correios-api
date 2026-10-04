@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "de9c0a7b-56fc-4a78-8252-7e1dc268eada",
     "name": "Correios API - Homologação (testes manuais)",
-    "description": "Coleção para testes manuais das APIs dos Correios no ambiente de **homologação** (host apihom.correios.com.br).\n\n**Como usar**\n1. Importe a coleção e execute as pastas **na ordem numérica** (01 → 11). Cada etapa grava nas variáveis da coleção os dados que as seguintes usam (token, DR, endereços, ids, recibos).\n2. Comece por **1.1 Gerar token** — o script de teste grava `token`, `tokenExpiraEm`, `dr` e `contrato`. Com `autoRenovarToken = true`, o token é renovado sozinho quando faltar menos de 5 minutos.\n3. Autenticação: todas as requisições herdam `Bearer {{token}}` da coleção; só a pasta 01 usa Basic (`usuario` = CNPJ em homologação + `codigoAcesso`).\n4. Veja o **Console** do Postman: os scripts registram preços, prazos, ids, recibos e mensagens de erro.\n\n**Serviços testados:** 03220 SEDEX CONTRATO AG e 03298 PAC CONTRATO AG (postagem comum); 03247 SEDEX REVERSO e 03301 PAC REVERSO (logística reversa).\n\n**Dados fictícios:** loja em Av. Paulista 1000 (CEP 01310-100), cliente Maria Aparecida Souza na Praça da Sé 100 (CEP 01001-000), pacote 30×20×10 cm, 800 g, valor declarado R$ 250,00. As requisições 3.1 e 3.2 corrigem logradouro/bairro/cidade/UF com os dados oficiais do CEP.\n\n**Atenção:** a coleção contém credenciais de homologação — não compartilhe o arquivo. Documentação de apoio: arquivos correios-00 a correios-11 da pasta doc/referencia/.",
+    "description": "Coleção para testes manuais das APIs dos Correios no ambiente de **homologação** (host apihom.correios.com.br).\n\n**Como usar**\n1. Importe a coleção e execute as pastas **na ordem numérica** (01 → 11). Cada etapa grava nas variáveis da coleção os dados que as seguintes usam (token, DR, endereços, ids, recibos).\n2. Comece por **1.1 Gerar token** — o script de teste grava `token`, `tokenExpiraEm`, `dr` e `contrato`. Com `autoRenovarToken = true`, o token é renovado sozinho quando faltar menos de 5 minutos.\n3. Autenticação: todas as requisições herdam `Bearer {{token}}` da coleção; só a pasta 01 usa Basic (`usuario` = CNPJ em homologação + `codigoAcesso`).\n4. Veja o **Console** do Postman: os scripts registram preços, prazos, ids, recibos e mensagens de erro.\n\n**Serviços testados:** 03220 SEDEX CONTRATO AG e 03298 PAC CONTRATO AG (postagem comum); 03247 SEDEX REVERSO e 03301 PAC REVERSO (logística reversa).\n\n**Dados fictícios:** loja em Av. Paulista 1000 (CEP 01310-100), cliente Maria Aparecida Souza na Praça da Sé 100 (CEP 01001-000), pacote 30×20×10 cm, 800 g, valor declarado R$ 250,00. As requisições 3.1 e 3.2 corrigem logradouro/bairro/cidade/UF com os dados oficiais do CEP.\n\n**Atenção:** a coleção contém credenciais de homologação — não compartilhe o arquivo. Documentação de apoio: arquivos correios-00 a correios-11 da pasta doc/referencia/.\n\n**Atualizado em 04/10/2026 com observações de homologação:** a criação síncrona também pode voltar com `statusAtual = 7` (PENDENTE); pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois; o PPN-288 do download do rótulo vem com **HTTP 200**; o cancelamento síncrono devolve só `resultadoCancelamento`; o resultado do cancelamento em lote (7.4) é uma lista; a DACE com pré-postagem pendente responde HTTP 404 `PPN-376`. Detalhes nos arquivos 06, 07, 09, 13 e 14.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -572,6 +572,18 @@
       "value": "segredo-teste-homologacao-123",
       "type": "string",
       "description": ""
+    },
+    {
+      "key": "statusPrePostagemSedex",
+      "value": "",
+      "type": "string",
+      "description": "statusAtual devolvido na criação (6.1/6.2); a pasta 08 avisa se não for 2"
+    },
+    {
+      "key": "statusPrePostagemPac",
+      "value": "",
+      "type": "string",
+      "description": "statusAtual devolvido na criação (6.1/6.2); a pasta 08 avisa se não for 2"
     }
   ],
   "item": [
@@ -869,7 +881,7 @@
                 }
               ]
             },
-            "description": "Confere se os 4 serviços usados nos testes estão habilitados: 03220 SEDEX CONTRATO AG, 03298 PAC CONTRATO AG, 03247 SEDEX REVERSO e 03301 PAC REVERSO."
+            "description": "Confere se os 4 serviços usados nos testes estão habilitados: 03220 SEDEX CONTRATO AG, 03298 PAC CONTRATO AG, 03247 SEDEX REVERSO e 03301 PAC REVERSO.\n\n✔ Observado em 04/10/2026: `itens` vem como **lista** e a resposta é paginada (o cartão de teste tinha 234 serviços em 5 páginas de 50). Se um serviço não aparecer nesta página, consulte as próximas (`page=1`, `page=2`...)."
           },
           "response": [],
           "event": [
@@ -887,7 +899,8 @@
                   "['servicoSedex','servicoPac','servicoSedexReverso','servicoPacReverso'].forEach(v => {",
                   "  const c = pm.collectionVariables.get(v);",
                   "  pm.test(`Serviço ${c} habilitado no cartão`, () => pm.expect(codigos).to.include(c));",
-                  "});"
+                  "});",
+                  "if (j.page) console.log('Página', j.page.number, 'de', j.page.totalPages, '| total de serviços:', j.page.totalElements, '— os testes acima olham só esta página.');"
                 ]
               }
             }
@@ -2141,7 +2154,10 @@
                   "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
                   "pm.collectionVariables.set('idPrePostagemSedex', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoSedex', j.codigoObjeto || '');",
-                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "pm.collectionVariables.set('statusPrePostagemSedex', j.statusAtual == null ? '' : String(j.statusAtual));",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }
@@ -2195,7 +2211,10 @@
                   "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
                   "pm.collectionVariables.set('idPrePostagemPac', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoPac', j.codigoObjeto || '');",
-                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "pm.collectionVariables.set('statusPrePostagemPac', j.statusAtual == null ? '' : String(j.statusAtual));",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }
@@ -2249,7 +2268,9 @@
                   "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
                   "pm.collectionVariables.set('idPrePostagemSedexReverso', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoSedexReverso', j.codigoObjeto || '');",
-                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }
@@ -2303,7 +2324,9 @@
                   "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
                   "pm.collectionVariables.set('idPrePostagemPacReverso', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoPacReverso', j.codigoObjeto || '');",
-                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }
@@ -2399,7 +2422,9 @@
                   "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
                   "pm.collectionVariables.set('idPrePostagemSedexAr', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoSedexAr', j.codigoObjeto || '');",
-                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }
@@ -2548,7 +2573,7 @@
                 "{{reciboPrePostagemAssincrona}}"
               ]
             },
-            "description": "Repita até `situacao = PROCESSADO`. Grava `idPrePostagemAssincrona` e `codigoObjetoAssincrona`."
+            "description": "Repita até `situacao = PROCESSADO`. Grava `idPrePostagemAssincrona` e `codigoObjetoAssincrona`.\n\n✔ Observado em 04/10/2026: a pré-postagem ficou em `statusAtual = 7` por mais de 2 minutos e depois apareceu com status 5 (CANCELADO), sem pedido de cancelamento. Em 27/09/2026 ela tinha passado para 2 em alguns minutos."
           },
           "response": [],
           "event": [
@@ -2571,7 +2596,8 @@
                   "  if (String(st) === '7') console.log('ATENÇÃO: status 7 (PENDENTE) — aguarde alguns minutos e rode 7.2 de novo. Só execute 8.3 com status 2: recibo pedido com status 7 não funciona no download (PPN-288).');",
                   "} else if (j.situacao === 'FALHA') {",
                   "  console.log('Mensagens:', JSON.stringify(j.mensagens), JSON.stringify(j.sequencias));",
-                  "} else { console.log('Ainda não processado — aguarde alguns segundos e envie de novo.'); }"
+                  "} else { console.log('Ainda não processado — aguarde alguns segundos e envie de novo.'); }",
+                  "if (Array.isArray(j.prePostagens) && j.prePostagens.length && String(j.prePostagens[0].statusAtual) === '5') console.log('A pré-postagem está CANCELADA (status 5). Em 04/10/2026, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios (evento \"Etiqueta cancelada pelo sistema de captação\"): crie outra em 7.1.');"
                 ]
               }
             }
@@ -2603,7 +2629,7 @@
                 "assincrona"
               ]
             },
-            "description": "DELETE com corpo JSON. Cancela a pré-postagem criada em 7.1. **Se quiser imprimir a etiqueta dela, execute antes 8.3 e 9.1** — depois de cancelada, o rótulo não é gerado.",
+            "description": "DELETE com corpo JSON. Cancela a pré-postagem criada em 7.1. **Se quiser imprimir a etiqueta dela, execute antes 8.3 e 9.1** — depois de cancelada, o rótulo não é gerado.\n\n✔ Resposta observada em 04/10/2026: `{\"idRecibo\": \"<UUID de 36 caracteres>\"}`, gravado em `reciboCancelamento` para 7.4.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idsPrePostagens\": [\n    \"{{idPrePostagemAssincrona}}\"\n  ]\n}",
@@ -2656,7 +2682,7 @@
                 "{{reciboCancelamento}}"
               ]
             },
-            "description": "Confirma o cancelamento solicitado em 7.3."
+            "description": "Consulta o resultado do cancelamento em lote (7.3).\n\n✔ Observado em 04/10/2026: a resposta é uma **lista**, um item por pré-postagem, com `IdPrePostagem`, `data`, `idRecibo` e `mensagem`. Mensagem começando com código (ex.: `PPN-145-5: ... status Cancelado ...`) indica que aquela pré-postagem não foi cancelada."
           },
           "response": [],
           "event": [
@@ -2666,7 +2692,16 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "console.log(pm.response.text());"
+                  "// Observado em 04/10/2026: uma LISTA com um item por pré-postagem: { IdPrePostagem, data, idRecibo, mensagem }",
+                  "let j;",
+                  "try { j = pm.response.json(); } catch (e) { console.log(pm.response.text()); return; }",
+                  "const itens = Array.isArray(j) ? j : (j && Array.isArray(j.itens) ? j.itens : [j]);",
+                  "pm.test('Resultado por pré-postagem', () => pm.expect(itens.length).to.be.above(0));",
+                  "itens.forEach(i => {",
+                  "  const id = i.IdPrePostagem || i.idPrePostagem || i.codigoObjeto;",
+                  "  const erro = /^[A-Z]{2,6}-\\d+(-\\d+)*:/.test(i.mensagem || '');",
+                  "  console.log(id, '|', i.data, '|', erro ? 'NÃO CANCELADA' : 'ok', '|', i.mensagem);",
+                  "});"
                 ]
               }
             }
@@ -2744,7 +2779,8 @@
                   "const ids = ['idPrePostagemSedex', 'idPrePostagemPac']",
                   "  .map(v => pm.collectionVariables.get(v)).filter(v => v && v.trim());",
                   "pm.collectionVariables.set('idsPrePostagemRotulo', JSON.stringify(ids));",
-                  "console.log('Ids enviados para o rótulo:', ids.join(', ') || '(nenhum — execute a pasta 06 antes)');"
+                  "console.log('Ids enviados para o rótulo:', ids.join(', ') || '(nenhum — execute a pasta 06 antes)');",
+                  "['statusPrePostagemSedex', 'statusPrePostagemPac'].forEach(v => { const st = pm.collectionVariables.get(v); if (st && st !== '2') console.log('ATENÇÃO: ' + v + ' = ' + st + ' (observado em 04/10/2026: criação síncrona com status 7). O recibo pedido com status 7 falha no download com PPN-288 e não volta a funcionar.'); });"
                 ]
               }
             },
@@ -2940,7 +2976,7 @@
                 "{{reciboRotulo}}"
               ]
             },
-            "description": "Se o arquivo ainda não estiver pronto, aguarde alguns segundos e envie de novo. Quando o PDF vier em Base64, a aba **Visualize** mostra a etiqueta."
+            "description": "Se o arquivo ainda não estiver pronto, aguarde alguns segundos e envie de novo. Quando o PDF vier em Base64, a aba **Visualize** mostra a etiqueta.\n\n✔ Observado em 04/10/2026: o erro **PPN-288** (pré-postagem pendente) vem com **HTTP 200** e `{\"mensagem\": \"PPN-288: ...\"}`, sem `dados` — o teste \"HTTP 200\" passa, mas o de `dados` falha. Nesse caso, solicite o rótulo de novo (pasta 08) quando o status for 2."
           },
           "response": [],
           "event": [
@@ -2952,8 +2988,13 @@
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "if (pm.response.code >= 400) console.log('Erro:', pm.response.text());",
                   "// Resposta observada em homologação: { dados: <PDF em Base64>, nome: 'idRecibo_<idRecibo>.pdf' }",
+                  "// Observado em 04/10/2026: o PPN-288 (pré-postagem pendente) vem com HTTP 200 e { mensagem: 'PPN-288: ...' }, sem 'dados'",
                   "const j = pm.response.json();",
-                  "pm.test('Campo dados (PDF em Base64) presente', () => pm.expect(j.dados).to.be.a('string').and.match(/^JVBER/));",
+                  "if (!j.dados && j.mensagem) {",
+                  "  console.log('ERRO com HTTP 200:', j.mensagem);",
+                  "  if (/^PPN-288/.test(j.mensagem)) console.log('A pré-postagem estava PENDENTE (status 7) quando o rótulo foi pedido. Este recibo nunca vai funcionar: aguarde o status 2 e solicite o rótulo de novo (pasta 08).');",
+                  "}",
+                  "pm.test('Campo dados (PDF em Base64) presente', () => pm.expect(j.dados, j.mensagem || 'sem dados').to.be.a('string').and.match(/^JVBER/));",
                   "pm.test('Campo nome presente', () => pm.expect(j.nome).to.match(/\\.pdf$/));",
                   "console.log('Arquivo:', j.nome, '| Base64:', (j.dados || '').length, 'caracteres');",
                   "if (j.dados) pm.visualizer.set(`<embed src=\"data:application/pdf;base64,{{pdf}}\" type=\"application/pdf\" width=\"100%\" height=\"800px\"/>`, { pdf: j.dados });"
@@ -3093,7 +3134,7 @@
                 }
               ]
             },
-            "description": "Código de exemplo citado no manual V2.4 (DG049186226BR) — útil para ver a estrutura de eventos."
+            "description": "Código de exemplo citado no manual V2.4 (DG049186226BR) — útil para ver a estrutura de eventos.\n\n✔ Observado em 04/10/2026: o código de exemplo do manual (`DG049186226BR`) responde HTTP 200 com o objeto sem eventos e `mensagem` = `SRO-020: Não localizamos informações para o código informado...`. Objetos de pré-postagens de homologação mostram eventos como \"Etiqueta emitida\" e \"Etiqueta cancelada pelo sistema de captação\"."
           },
           "response": [],
           "event": [
@@ -3605,7 +3646,9 @@
                   "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
                   "pm.collectionVariables.set('idPrePostagemCancelarPorId', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoCancelarPorId', j.codigoObjeto || '');",
-                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }
@@ -3633,7 +3676,7 @@
                 "{{idPrePostagemCancelarPorId}}"
               ]
             },
-            "description": "DELETE sem corpo. Resposta esperada: `{ resultadoCancelamento, mensagem, idRecibo }`. Irreversível."
+            "description": "DELETE sem corpo. Resposta da especificação: `{ resultadoCancelamento, mensagem, idRecibo }`. ✔ Observado em 04/10/2026 (cancelamento por id): só `{\"resultadoCancelamento\": \"Cancelamento realizado com sucesso!\"}`; pré-postagens com status 7 foram canceladas sem erro. Irreversível."
           },
           "response": [],
           "event": [
@@ -3645,6 +3688,8 @@
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "if (pm.response.code === 200) {",
                   "  const j = pm.response.json();",
+                  "  // Observado em 04/10/2026: só { resultadoCancelamento: 'Cancelamento realizado com sucesso!' }, sem mensagem e sem idRecibo",
+                  "  pm.test('resultadoCancelamento presente', () => pm.expect(j.resultadoCancelamento).to.be.a('string').and.not.be.empty);",
                   "  console.log('resultadoCancelamento:', j.resultadoCancelamento, '| mensagem:', j.mensagem, '| idRecibo:', j.idRecibo);",
                   "  if (j.idRecibo) pm.collectionVariables.set('reciboCancelamentoSincrono', j.idRecibo);",
                   "} else { console.log('Erro:', pm.response.text()); }"
@@ -3701,7 +3746,9 @@
                   "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
                   "pm.collectionVariables.set('idPrePostagemCancelarPorObjeto', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoCancelarPorObjeto', j.codigoObjeto || '');",
-                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }
@@ -3742,6 +3789,8 @@
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "if (pm.response.code === 200) {",
                   "  const j = pm.response.json();",
+                  "  // Observado em 04/10/2026: só { resultadoCancelamento: 'Cancelamento realizado com sucesso!' }, sem mensagem e sem idRecibo",
+                  "  pm.test('resultadoCancelamento presente', () => pm.expect(j.resultadoCancelamento).to.be.a('string').and.not.be.empty);",
                   "  console.log('resultadoCancelamento:', j.resultadoCancelamento, '| mensagem:', j.mensagem, '| idRecibo:', j.idRecibo);",
                   "  if (j.idRecibo) pm.collectionVariables.set('reciboCancelamentoSincrono', j.idRecibo);",
                   "} else { console.log('Erro:', pm.response.text()); }"
@@ -3772,7 +3821,7 @@
                 "{{idPrePostagemCancelarPorId}}"
               ]
             },
-            "description": "Repete o cancelamento de 13.2 para registrar a resposta da API quando a pré-postagem já está cancelada (esperado: erro)."
+            "description": "Repete o cancelamento de 13.2 para registrar a resposta da API quando a pré-postagem já está cancelada (esperado: erro).\n\n✔ Observado em 04/10/2026 (pré-postagem já cancelada): HTTP 400 com `PPN-145-5: Operação não realizada! A pré-postagem está com o status Cancelado. Somente poderão ser canceladas as pré-postagens que estejam com status igual a pré-postado.`"
           },
           "response": [],
           "event": [
@@ -3859,7 +3908,9 @@
                   "pm.collectionVariables.set('idPrePostagemDce', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoDce', j.codigoObjeto || '');",
                   "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
-                  "console.log('emiteDCe:', j.emiteDCe, '| motivoCancelamento:', j.motivoCancelamento || '(vazio)');"
+                  "console.log('emiteDCe:', j.emiteDCe, '| motivoCancelamento:', j.motivoCancelamento || '(vazio)');",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }
@@ -3893,7 +3944,7 @@
                 "impressao"
               ]
             },
-            "description": "Resposta esperada: `{ objetos, dados }`, com `dados` = PDF em Base64 (aba **Visualize**). Se falhar logo após a 14.1, aguarde e tente de novo.",
+            "description": "Resposta esperada: `{ objetos, dados }`, com `dados` = PDF em Base64 (aba **Visualize**). Se falhar logo após a 14.1, aguarde e tente de novo.\n\n✔ Observado em 04/10/2026: com a pré-postagem em status 7 (PENDENTE), a impressão respondeu **HTTP 404** `PPN-376: Não é possível emitir DACE para NF-e, objetos que não estejam prepostados ou sem chave D…`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idsPrePostagens\": [\n    \"{{idPrePostagemDce}}\"\n  ],\n  \"tipoDace\": \"C\"\n}",
@@ -3919,7 +3970,8 @@
                   "  console.log('Objetos:', JSON.stringify(j.objetos), '| tamanho de dados:', d.length, '| início:', d.substring(0, 60));",
                   "  if (d.startsWith('JVBER')) pm.visualizer.set(`<embed src=\"data:application/pdf;base64,{{pdf}}\" type=\"application/pdf\" width=\"100%\" height=\"800px\"/>`, { pdf: d });",
                   "  else pm.visualizer.set('<pre>{{txt}}</pre>', { txt: d });",
-                  "}"
+                  "}",
+                  "if (pm.response.code === 404 && /PPN-376/.test(pm.response.text())) console.log('PPN-376 (HTTP 404, observado em 04/10/2026): a DACE só é emitida para pré-postagem PREPOSTADA (status 2). Confira o status da 14.1 e tente de novo depois.');"
                 ]
               }
             }
@@ -3953,7 +4005,7 @@
                 "impressao"
               ]
             },
-            "description": "Mesmo objeto, identificado pelo código do objeto.",
+            "description": "Mesmo objeto, identificado pelo código do objeto.\n\n✔ Observado em 04/10/2026: com a pré-postagem em status 7 (PENDENTE), a impressão respondeu **HTTP 404** `PPN-376: Não é possível emitir DACE para NF-e, objetos que não estejam prepostados ou sem chave D…`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"codigosObjetos\": [\n    \"{{codigoObjetoDce}}\"\n  ],\n  \"tipoDace\": \"R\"\n}",
@@ -3979,7 +4031,8 @@
                   "  console.log('Objetos:', JSON.stringify(j.objetos), '| tamanho de dados:', d.length, '| início:', d.substring(0, 60));",
                   "  if (d.startsWith('JVBER')) pm.visualizer.set(`<embed src=\"data:application/pdf;base64,{{pdf}}\" type=\"application/pdf\" width=\"100%\" height=\"800px\"/>`, { pdf: d });",
                   "  else pm.visualizer.set('<pre>{{txt}}</pre>', { txt: d });",
-                  "}"
+                  "}",
+                  "if (pm.response.code === 404 && /PPN-376/.test(pm.response.text())) console.log('PPN-376 (HTTP 404, observado em 04/10/2026): a DACE só é emitida para pré-postagem PREPOSTADA (status 2). Confira o status da 14.1 e tente de novo depois.');"
                 ]
               }
             }
@@ -4013,7 +4066,7 @@
                 "impressao"
               ]
             },
-            "description": "No tipo T, `dados` deve trazer texto para impressão direta em impressora térmica (formato a confirmar).",
+            "description": "No tipo T, `dados` deve trazer texto para impressão direta em impressora térmica (formato a confirmar).\n\n✔ Observado em 04/10/2026: com a pré-postagem em status 7 (PENDENTE), a impressão respondeu **HTTP 404** `PPN-376: Não é possível emitir DACE para NF-e, objetos que não estejam prepostados ou sem chave D…`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idsPrePostagens\": [\n    \"{{idPrePostagemDce}}\"\n  ],\n  \"tipoDace\": \"T\"\n}",
@@ -4039,7 +4092,8 @@
                   "  console.log('Objetos:', JSON.stringify(j.objetos), '| tamanho de dados:', d.length, '| início:', d.substring(0, 60));",
                   "  if (d.startsWith('JVBER')) pm.visualizer.set(`<embed src=\"data:application/pdf;base64,{{pdf}}\" type=\"application/pdf\" width=\"100%\" height=\"800px\"/>`, { pdf: d });",
                   "  else pm.visualizer.set('<pre>{{txt}}</pre>', { txt: d });",
-                  "}"
+                  "}",
+                  "if (pm.response.code === 404 && /PPN-376/.test(pm.response.text())) console.log('PPN-376 (HTTP 404, observado em 04/10/2026): a DACE só é emitida para pré-postagem PREPOSTADA (status 2). Confira o status da 14.1 e tente de novo depois.');"
                 ]
               }
             }
@@ -4093,7 +4147,9 @@
                   "pm.test('id da pré-postagem retornado', () => pm.expect(j.id).to.be.a('string'));",
                   "pm.collectionVariables.set('idPrePostagemChaveFiscal', j.id || '');",
                   "pm.collectionVariables.set('codigoObjetoChaveFiscal', j.codigoObjeto || '');",
-                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);"
+                  "console.log('id:', j.id, '| código do objeto:', j.codigoObjeto, '| status:', j.statusAtual, j.descStatusAtual || '', '| prazo postagem:', j.prazoPostagem);",
+                  "// Observado em 04/10/2026: a criação síncrona também pode voltar com statusAtual = 7 (PENDENTE)",
+                  "if (String(j.statusAtual) === '7') console.log('ATENÇÃO: statusAtual 7 (PENDENTE). Não peça o rótulo (pasta 08) nem a DACE (pasta 14) antes do status 2: o recibo pedido agora falha com PPN-288. Em homologação, pré-postagens pendentes de teste foram canceladas automaticamente pelos Correios minutos depois.');"
                 ]
               }
             }

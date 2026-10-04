@@ -434,7 +434,9 @@ Itens da declaração de conteúdo. Obrigatório informar todos os atributos (co
 | `401` | Token ausente, inválido ou expirado. | — |
 | `403` | Token sem permissão para o cartão/contrato. | — |
 
-A resposta 200 é uma **string**: o número do recibo, a ser usado em `GET /v1/prepostagens/assincrona/{recibo}`. Confirme em homologação se vem como texto puro ou entre aspas (JSON string).
+A resposta 200 é uma **string**: o número do recibo, a ser usado em `GET /v1/prepostagens/assincrona/{recibo}`.
+
+✔ **Observado em homologação (04/10/2026):** o recibo tem 34 caracteres, `RP` seguido de 32 caracteres hexadecimais (ex.: `RPcdb0c28e6ceb470e90c03cc05fbfa08c`). Não foi registrado se o corpo vem como texto puro ou entre aspas: aceite os dois (remova as aspas, se houver).
 
 ## 2. `GET /v1/prepostagens/assincrona/{recibo}`
 
@@ -677,7 +679,9 @@ Content-Type: application/json
 | `401` | Token ausente, inválido ou expirado. | — |
 | `403` | Token sem permissão para o cartão/contrato. | — |
 
-A resposta 200 é declarada apenas como `object`. Pelo endpoint 4, ela deve conter o identificador do recibo do cancelamento — confirme o nome do campo em homologação.
+A resposta 200 é declarada apenas como `object`.
+
+✔ **Observado em homologação (04/10/2026):** `{"idRecibo": "cc5607bb-c2c1-4e5e-9607-bbc2c18e5e94"}` — um UUID de 36 caracteres, usado no endpoint 4. A requisição foi aceita com HTTP 200 mesmo para uma pré-postagem que já estava cancelada: o resultado de cada item só aparece no endpoint 4.
 
 ## 4. `GET /v1/prepostagens/canceladas/assincrona/{idRecibo}`
 
@@ -709,7 +713,27 @@ Authorization: Bearer <token>
 | `401` | Token ausente, inválido ou expirado. | — |
 | `403` | Token sem permissão para o cartão/contrato. | — |
 
-A resposta 200 é declarada apenas como `object`, sem campos. Registre uma resposta real em homologação para completar.
+A resposta 200 é declarada apenas como `object`, sem campos.
+
+✔ **Observado em homologação (04/10/2026):** a resposta é uma **lista**, com um item por pré-postagem enviada no cancelamento:
+
+```json
+[
+  {
+    "IdPrePostagem": "PRxxxxxxxxxxxxxxxxxxxxxx",
+    "data": "2026-10-04T14:18:36.93",
+    "idRecibo": "cc5607bb-c2c1-4e5e-9607-bbc2c18e5e94",
+    "mensagem": "PPN-145-5: Operação não realizada! A pré-postagem está com o status Cancelado. Somente poderão ser canceladas as pré-postagens que estejam com status igual a pré-postado."
+  }
+]
+```
+
+| Campo | Observado |
+|---|---|
+| `IdPrePostagem` | Id da pré-postagem (atenção ao `I` maiúsculo) |
+| `data` | Data-hora sem fuso, com fração de segundo |
+| `idRecibo` | O mesmo recibo do endpoint 3 |
+| `mensagem` | Resultado do item. Nesse teste a pré-postagem já tinha sido cancelada pelos Correios, e a mensagem trouxe o erro `PPN-145-5`. A mensagem de sucesso não foi registrada — trate como falha o item cuja mensagem começa com um código `XXX-nnn:` |
 
 ## 5. Resposta de erro (400/500) — `MessageResponse`
 
@@ -1901,5 +1925,6 @@ A resposta 200 é declarada apenas como `object`, sem campos. Registre uma respo
    Atenção: são **dois recibos diferentes** — o da criação (usado só na consulta de status) e o `idRecibo` do rótulo (usado no download). Não envie o recibo da criação ao endpoint de download, nem peça o rótulo antes de `PROCESSADO` ou de uma pré-postagem já cancelada.
 8. **Cancelamento:** envie `codigosObjetos` ou `idsPrePostagens` no corpo do `DELETE`, guarde o recibo retornado e confirme o resultado em `GET /v1/prepostagens/canceladas/assincrona/{idRecibo}`. Só marque como cancelado no seu sistema após a confirmação.
 9. **Idempotência:** evite reenviar a mesma solicitação enquanto um recibo estiver pendente, para não duplicar pré-postagens.
-10. **Respostas não documentadas:** os retornos 200 do cancelamento (endpoints 3 e 4) são `object` sem campos — registre (log) as primeiras respostas reais e trate de forma defensiva.
+10. **Respostas não documentadas na especificação:** ✔ observadas em 04/10/2026 — o endpoint 3 devolve `{"idRecibo": "<UUID>"}` e o endpoint 4 devolve uma **lista** com `IdPrePostagem`, `data`, `idRecibo` e `mensagem` por item (seção 4). Leia o resultado item a item e continue tratando outros formatos de forma defensiva.
+11. ✔ **Status 7 prolongado e cancelamento automático (homologação, 04/10/2026):** uma pré-postagem PAC assíncrona ficou em `PROCESSADO` com `statusAtual = 7` durante 6 consultas, ao longo de cerca de 2 minutos, e depois apareceu com status **5 (CANCELADO)**, sem pedido de cancelamento. O rastreamento de outra pré-postagem pendente mostrou o evento "Etiqueta cancelada pelo sistema de captação". Em 27/09/2026, a passagem de 7 para 2 tinha levado alguns minutos. Trate o cancelamento automático como um desfecho possível do status 7.
 11. **Ambientes:** mantenha a URL base configurável (homologação × produção).

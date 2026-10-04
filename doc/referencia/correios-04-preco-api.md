@@ -3111,6 +3111,7 @@ Resposta 200:
      Envio: GET `&servicosAdicionais=016`; POST `"servicosAdicionais": ["016"]`. Na Pré-postagem, o código 016 aparece ligado ao campo `objetoIdaSimultanea` ("código do objeto de ida simultânea para o serviço adicional 016").
    - ✔ **Diferença entre APIs:** a exigência do 016 vale para a **API Preço**. Na **Pré-postagem**, o SEDEX REVERSO (03247) foi criado com sucesso **sem** o adicional 016 em `listaServicoAdicional` (ver arquivo 06). Não replique automaticamente na pré-postagem os adicionais exigidos na cotação.
    - **Como descobrir adicionais obrigatórios:** em `GET /v1/servicos-adicionais/{coProduto}`, o campo `noIndicador`/`sgIndicador` indica a exigência — `Obrigatório` (`O`, `coIndicador` `01`) deve ser sempre enviado; `Opcional` (`P`, `coIndicador` `03`) fica a critério do cliente. Os indicadores e a obrigatoriedade podem mudar com a vigência (`dtIniVigencia`/`dtFimVigencia`) — consulte periodicamente em vez de fixar no código. Outros valores de `coIndicador` não foram observados.
+   - ✔ **Observado em homologação (04/10/2026):** a lista de adicionais do SEDEX 03220 trouxe 19 itens, e o código **`010` apareceu duas vezes**. Não use o código como chave única sem tratar repetições (ex.: fique com o item vigente pela `dtIniVigencia`/`dtFimVigencia`).
    - Exemplo de item observado (03247):
 
      ```json

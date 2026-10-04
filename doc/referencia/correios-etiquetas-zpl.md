@@ -296,12 +296,17 @@ A pasta `doc/recursos/parciais-zpl/` traz os trechos já prontos para copiar par
 |---|---|---|---|
 | `logo_correios.zpl` | Logo dos Correios, 203 dpi (ver 5.5) | `^FO41,56` | 224 × 224 |
 | `logo_correios_300dpi.zpl` | Logo dos Correios, 300 dpi | `^FO62,84` | 336 × 336 |
+| `logo_servico_sedex_300dpi.zpl` | Símbolo do SEDEX, 300 dpi (gerado em 04/10/2026 do PNG ampliado 1,5×) | `^FO768,96` | 336 × 336 |
+| `logo_servico_pac_300dpi.zpl` | Símbolo do PAC, 300 dpi (idem) | `^FO840,150` | 240 × 221 |
+| `logo_servico_carta_300dpi.zpl` | Chancela Carta, 300 dpi (idem) | `^FO768,96` | 336 × 336 |
 | `logo_servico_sedex.zpl` | Símbolo do SEDEX, extraído de `sedex_template.zpl` | `^FO512,64` | 224 × 224 |
 | `logo_servico_pac.zpl` | Símbolo do PAC, extraído de `pac_template.zpl` | `^FO560,100` | 160 × 147 |
 | `logo_servico_carta.zpl` | Chancela Carta, extraída de `carta_template.zpl` | `^FO512,64` | 224 × 224 |
 | `exemplo_etiqueta_sedex_203dpi.zpl` | Etiqueta completa de exemplo (template base + logos + dados fictícios), para colar no Labelary | — | 800 × 1239 |
 
 Cada parcial está em uma única linha, com `^FO`, `^GFA` e `^FS`.
+
+✔ **Conferido em 04/10/2026:** reconvertendo os PNG de `doc/recursos/logos-png/` com a lógica da seção 5.3, os bytes dos símbolos de SEDEX, PAC (hexadecimal compactado) e Carta saem idênticos aos dos templates antigos. Os parciais de 300 dpi dos serviços foram gerados a partir desses PNG ampliados em 1,5× (`imagecopyresampled` + limiar 128) e conferidos no Labelary. O componente os traz em `resources/templates/300dpi/parciais/`.
 
 ### 5.5 Logo dos Correios no lugar do logo da loja
 
@@ -423,7 +428,7 @@ resources/templates/
 ^FO50,686^A0N,26,25^FB710,2,0,L^FH^FD{{destinatario_endereco}}^FS
 ^FO50,740^A0N,26,25^FH^FD{{destinatario_bairro}}^FS
 ^FO50,768^A0N,32,31^FH^FD{{destinatario_cep_hifen}}^FS
-^FO200,771^A0N,28,27^FH^FD{{destinatario_cidade_uf}}^FS
+^FO212,771^A0N,28,27^FH^FD{{destinatario_cidade_uf}}^FS
 ^FX --- CEP de destino em Code 128, sem texto legivel ---
 ^BY3,2,70^FO50,805^BCN,,N,N^FD{{destinatario_cep}}^FS
 ^FX --- Bloco do remetente ---
@@ -440,6 +445,8 @@ resources/templates/
 ```
 
 Diferenças em relação ao template antigo: `^PW800` explícito; marcadores `{{}}`; logos como parciais; endereços e observações com `^FB` (até 2 linhas); CEP do destinatário em fonte maior no lugar do negrito simulado; código de barras do CEP com altura 70 para caber no bloco reespaçado; novos campos de peso, volume e siglas dos adicionais.
+
+✔ **Ajuste de 04/10/2026:** a cidade/UF do destinatário passou de `^FO200,771` para `^FO212,771`. Em 300 dpi (escala 1,5) o CEP em fonte maior encostava na cidade; com 12 pontos a mais, os dois ficam separados nas duas resoluções (conferido no Labelary). No componente, os marcadores de valor cru (códigos de barras e DataMatrix) usam a forma `{{{nome}}}` (seção 8.4).
 
 Parcial sugerido para `marca_homologacao.zpl` (incluído só quando o ambiente for homologação):
 
@@ -475,7 +482,7 @@ Para **logística reversa**, os papéis se invertem: o remetente é o cliente qu
 
 ### 8.4 Regras do renderizador
 
-1. **Escape:** em todo valor inserido em campo com `^FH`, trocar `_` → `_5F`, `^` → `_5E`, `~` → `_7E`, `\` → `_5C`. Fazer o escape **depois** de cortar o texto.
+1. **Escape:** em todo valor inserido em campo com `^FH`, trocar `_` → `_5F`, `^` → `_5E`, `~` → `_7E`, `\` → `_5C`, em **uma única passada** (o `_` gerado por um escape não é escapado de novo). Fazer o escape **depois** de cortar o texto. O componente também troca `{` → `_7B` e `}` → `_7D`: sem isso, um valor com `{{` (ex.: o texto digitado por um cliente) seria confundido com marcador e geraria `ErroTemplate`; com o escape, ele é impresso normalmente.
 2. **Campos sem `^FH`** (DataMatrix e códigos de barras): não escapar; **validar** o conteúdo. Código do objeto: `^[A-Z]{2}[0-9]{9}[A-Z]{2}$`. CEP: 8 dígitos. DataMatrix: 164 caracteres do conjunto `A–Z`, `0–9`, espaço, `-`, `.` e `|`.
 3. **Acentuação:** `^CI28` + valores em UTF-8. Remover caracteres de controle e quebras de linha dos valores.
 4. **Corte:** cortar por **caracteres** (`mb_substr`), não por bytes, respeitando os limites da tabela 8.3. Em campo com `^FB`, o texto que passar do número de linhas é sobreposto na última linha — por isso o corte no código é obrigatório.
@@ -483,6 +490,7 @@ Para **logística reversa**, os papéis se invertem: o remetente é o cliente qu
 6. **Marcador sem valor:** se sobrar `{{...}}` no resultado, lançar `ErroTemplate`.
 7. **Saída:** um bloco `^XA ... ^XZ` por etiqueta. Para várias etiquetas, concatenar os blocos.
 8. **Resolução de 300 dpi:** multiplicar por **1,5** todas as coordenadas, tamanhos de fonte, traços, larguras e alturas (`^PW1200`, `^LL1858`); usar módulo 8 no DataMatrix e `^BY4` ou `^BY5` nos códigos de barras (o módulo é inteiro — confira no Labelary se o código do objeto ainda cabe na largura). As imagens `^GFA` **não** escalam sozinhas: gere parciais próprios de 300 dpi a partir dos PNG (redimensionados em 1,5×).
+   ✔ **Conferido em 04/10/2026** no Labelary (12 dpmm, 4 × 6,2 pol): com arredondamento para o inteiro mais próximo (`^BY3` → `^BY5`, DataMatrix módulo 5 → 8, `^LL1239` → `^LL1859`), a etiqueta completa coube na largura de 1200 pontos, com o código do objeto e o DataMatrix legíveis na imagem.
 
 ### 8.5 Montagem do DataMatrix
 
@@ -566,7 +574,7 @@ Conferência visual: cole o ZPL em `labelary.com/viewer.html` (8 dpmm, 4 × 6,2 
 - **Leitura do DataMatrix e dos códigos de barras por equipamento dos Correios.** A renderização foi conferida no Labelary; a aceitação na agência não foi testada com esta versão.
 - **Significado oficial dos campos fixos do DataMatrix** (`ServicosAdicionais`, `ValorDeclarado`, telefone, `IDV`) — dependem do manual de etiquetas dos Correios, que não faz parte desta documentação. A etiqueta real (`etiqueta_exemplo.zpl`) confirma que o sistema antigo enviava esses campos com os valores fixos; ela não mostra como codificar valor declarado ou AR.
 - **Medidas oficiais** (tamanho mínimo dos códigos, margens, posição obrigatória de cada elemento) — o layout segue o sistema antigo, não uma norma conferida.
-- **Template de 300 dpi** — a regra de escala (seção 8.4) não foi renderizada.
+- ~~Template de 300 dpi~~ — ✔ renderizado no Labelary em 04/10/2026 (seção 8.4, regra 8). Continua sem teste a impressão física em 300 dpi.
 - **Impressão física** em impressora térmica.
 - **Uso das marcas** SEDEX, PAC e Correios nos logotipos: as imagens vieram do sistema antigo; confirme com os Correios as regras de uso.
 - No template base, os textos da linha `NF / Contrato / Vol` (base em y = 305) ficam logo abaixo dos logos, que terminam em y = 300 (loja) e y = 288 (serviço). Com logos que ocupem toda a altura, confira se não encostam.
