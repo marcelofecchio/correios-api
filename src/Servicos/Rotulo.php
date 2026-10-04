@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarceloFecchio\Correios\Servicos;
 
 use MarceloFecchio\Correios\Dto\SolicitacaoRotulo;
-use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
 use MarceloFecchio\Correios\Respostas\ArquivoRotulo;
 use MarceloFecchio\Correios\Respostas\ReciboRotulo;
@@ -34,10 +33,7 @@ final class Rotulo extends Servico
 
         $resposta = $this->chamar('POST', '/prepostagem/v1/prepostagens/rotulo/assincrono/pdf', 'solicitar rótulo', $token, json: $corpo, sucesso: [200, 201, 202]);
         $dados = $this->leitor($resposta);
-        $idRecibo = $dados->texto('idRecibo');
-        if ($idRecibo === null) {
-            throw new ErroApi('A API não devolveu o "idRecibo" da solicitação do rótulo.', $resposta->status, [], null, null, $dados->bruto() ?: $resposta->corpo);
-        }
+        $idRecibo = $dados->texto('idRecibo') ?? throw $this->respostaSemCampo($resposta, 'idRecibo', 'solicitar rótulo');
 
         return new ReciboRotulo($idRecibo, $dados->bruto());
     }
@@ -56,10 +52,8 @@ final class Rotulo extends Servico
 
         $resposta = $this->chamar('GET', '/prepostagem/v1/prepostagens/rotulo/download/assincrono/' . self::segmento($id), 'baixar rótulo', $token);
         $dados = $this->leitor($resposta);
-        $base64 = $dados->texto('dados');
-        if ($base64 === null) {
-            throw new ErroApi('A resposta do download do rótulo não trouxe o campo "dados".', $resposta->status, [], null, null, $dados->bruto() ?: $resposta->corpo);
-        }
+        // Observado em homologação: o PPN-288 (pré-postagem pendente) chega com HTTP 200 e {"mensagem": "PPN-288: ..."}
+        $base64 = $dados->texto('dados') ?? throw $this->respostaSemCampo($resposta, 'dados', 'baixar rótulo');
 
         return new ArquivoRotulo($dados->texto('nome') ?? sprintf('idRecibo_%s.pdf', $id), $base64, $dados->bruto());
     }

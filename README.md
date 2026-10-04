@@ -1,0 +1,539 @@
+# marcelofecchio/correios-api
+
+[![Packagist](https://img.shields.io/packagist/v/marcelofecchio/correios-api.svg)](https://packagist.org/packages/marcelofecchio/correios-api)
+[![CI](https://github.com/marcelofecchio/correios-api/actions/workflows/ci.yml/badge.svg)](https://github.com/marcelofecchio/correios-api/actions/workflows/ci.yml)
+[![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-blue.svg)](LICENSE)
+
+Componente PHP para a **API REST dos Correios (CWS – Correios Web Services)** e para gerar **etiquetas em ZPL**
+(etiqueta de postagem 10x15 e DANFE simplificado) a partir de templates.
+
+- **Sem estado:** não guarda token, sessão nem cache. Toda chamada autenticada recebe o token por parâmetro.
+- **Configurável pela aplicação:** credenciais, ambiente e códigos de serviço vêm sempre de quem usa o componente.
+- **Independente de framework**, com integração **opcional** para Laravel.
+- **Tipado e testado:** PHP 8.4, PHPStan no nível máximo, testes Pest.
+
+## Sumário
+
+1. [Requisitos](#requisitos) · 2. [Instalação](#instala%C3%A7%C3%A3o) · 3. [Credenciais e ambientes](#credenciais-e-ambientes) ·
+4. [Configuração](#configura%C3%A7%C3%A3o) · 5. [Boas práticas com o token](#boas-pr%C3%A1ticas-com-o-token) ·
+6. [Fluxo completo de envio](#fluxo-completo-de-envio) · 7. [Módulos](#m%C3%B3dulos) ·
+8. [Pré-postagem assíncrona e rótulo](#pr%C3%A9-postagem-ass%C3%ADncrona-e-r%C3%B3tulo) · 9. [Serviços adicionais](#servi%C3%A7os-adicionais) ·
+10. [Etiquetas](#etiquetas) · 11. [Erros](#tratamento-de-erros) · 12. [Limitações conhecidas](#limita%C3%A7%C3%B5es-conhecidas) ·
+13. [Testes](#testes) · 14. [Contribuição e versões](#contribui%C3%A7%C3%A3o-versionamento-e-licen%C3%A7a)
+
+## Requisitos
+
+- PHP **8.4** com as extensões `dom`, `json`, `libxml` e `mbstring`.
+- Um cliente HTTP **PSR-18** e fábricas **PSR-17** (recomendado: Guzzle 7 ou superior). Sem nenhum instalado, o componente
+  avisa com `ErroConfiguracao`.
+- Opcional: `ext-gd` e `ext-zlib` só para converter imagens em `^GFA` (`Etiquetas\ImagemZpl`).
+- Opcional: Laravel 11 ou 12 para o ServiceProvider e a Facade.
+
+## Instalação
+
+```bash
+composer require marcelofecchio/correios-api guzzlehttp/guzzle
+```
+
+## Credenciais e ambientes
+
+| Dado | Onde obter |
+|---|---|
+| **Usuário** | **Homologação: o CNPJ** com 14 dígitos, sem pontuação. **Produção: o login do Meu Correios.** |
+| **Código de acesso** | Portal CWS → menu → gestão de acesso a componentes. **Cada ambiente tem o seu**: `cwshom.correios.com.br` (homologação) e `cws.correios.com.br` (produção). É ele que vai no Basic Auth, não a senha do Meu Correios. |
+| **Cartão de postagem** | Contrato com os Correios. Guarde como texto (tem zeros à esquerda). |
+| **Contrato e DR** | Opcionais: o token traz os dois. |
+| **CNPJ** | CNPJ do contrato. |
+
+| Ambiente | Host das APIs | Portal |
+|---|---|---|
+| Homologação | `https://apihom.correios.com.br` | `https://cwshom.correios.com.br` |
+| Produção | `https://api.correios.com.br` | `https://cws.correios.com.br` |
+
+> ⚠ Em **homologação** o usuário é o **CNPJ**. HTTP 401 na geração do token quase sempre significa login no lugar
+> do CNPJ, CNPJ com pontuação ou código de acesso do outro ambiente. Credenciais, tokens, ids e códigos de objeto de
+> um ambiente **não valem** no outro.
+
+## Configuração
+
+### PHP puro
+
+```php
+use MarceloFecchio\Correios\Configuracao;
+use MarceloFecchio\Correios\Correios;
+use MarceloFecchio\Correios\Dto\Endereco;
+use MarceloFecchio\Correios\Dto\Pessoa;
+use MarceloFecchio\Correios\Enums\Ambiente;
+
+$configuracao = new Configuracao(
+    ambiente: Ambiente::Homologacao,
+    usuario: getenv('CORREIOS_USUARIO'),             // homologação: o CNPJ
+    codigoAcesso: getenv('CORREIOS_CODIGO_ACESSO'),
+    cnpj: getenv('CORREIOS_CNPJ'),
+    cartaoPostagem: getenv('CORREIOS_CARTAO_POSTAGEM'),
+    servicos: ['sedex' => '03220', 'pac' => '03298', 'sedex_reverso' => '03247', 'pac_reverso' => '03301'],
+    remetentePadrao: new Pessoa(
+        nome: 'Minha Loja Ltda',
+        endereco: new Endereco('01310-100', 'Avenida Paulista', '1000', 'Bela Vista', 'São Paulo', 'SP', 'Sala 101'),
+        documento: '11.222.333/0001-81',
+        email: 'contato@minhaloja.com.br',
+    ),
+);
+
+$correios = new Correios(configuracao: $configuracao);
+```
+
+Os códigos de serviço **variam por contrato**: consulte os seus com `$correios->contrato()->listarTodosServicos($token)`.
+Os métodos aceitam o apelido (`'sedex'`) ou o código (`'03220'`).
+
+Também é possível montar a configuração a partir de um array (chaves em `snake_case` ou `camelCase`), com mensagens
+claras para chaves ausentes ou inválidas:
+
+```php
+$configuracao = Configuracao::deArray(require 'config/correios.php');
+```
+
+Opções: `ambiente`, `usuario`, `codigo_acesso`, `cnpj`, `cartao_postagem`, `contrato`, `diretoria_regional`,
+`servicos`, `remetente_padrao`, `etiquetas` (ver [Etiquetas](#etiquetas)), `timeout` (segundos) e `url_base`
+(sobrescreve o host, útil em testes).
+
+Cliente HTTP, fábricas e logger podem ser injetados:
+
+```php
+$correios = new Correios(
+    configuracao: $configuracao,
+    clienteHttp: $clientePsr18,       // opcional: Guzzle (se instalado) ou descoberta automática
+    fabricaRequisicao: $fabricaPsr17, // opcional
+    fabricaStream: $fabricaStream,    // opcional
+    logger: $loggerPsr3,              // opcional: token, credenciais, documentos e Base64 são mascarados
+);
+```
+
+O `timeout` é aplicado quando o componente cria o cliente Guzzle. Com um cliente injetado, configure o timeout nele.
+
+### Laravel
+
+O ServiceProvider é registrado por auto-discovery. Publique a configuração:
+
+```bash
+php artisan vendor:publish --tag=correios-config
+```
+
+`.env`:
+
+```dotenv
+CORREIOS_AMBIENTE=homologacao
+# Em homologação o usuário é o CNPJ (14 dígitos)
+CORREIOS_USUARIO=11222333000181
+CORREIOS_CODIGO_ACESSO=...
+CORREIOS_CNPJ=11222333000181
+CORREIOS_CARTAO_POSTAGEM=0012345678
+CORREIOS_CONTRATO=
+CORREIOS_DR=
+CORREIOS_SERVICO_SEDEX=03220
+CORREIOS_SERVICO_PAC=03298
+```
+
+Use a injeção de dependência (`Correios` é singleton) ou a Facade:
+
+```php
+use MarceloFecchio\Correios\Laravel\Facades\Correios;
+
+$rastreamento = Correios::rastro()->rastrear($token, 'AB043180865BR');
+```
+
+## Boas práticas com o token
+
+O componente **não guarda o token**: essa responsabilidade é da aplicação.
+
+- Ao gerar o token, **grave-o na sessão** com `Token::paraArray()`.
+- **Antes de gerar outro, verifique se já existe um válido** com `Token::deArray(...)->estaValido()`, e só gere um
+  novo se não houver ou se estiver perto de expirar.
+- Motivo: a API Token aceita no máximo **3 requisições por segundo** (acima disso, HTTP 429 →
+  `ErroLimiteRequisicoes`) e devolve o **mesmo** token até os 30 minutos finais da validade (normalmente 24 h).
+
+```php
+use MarceloFecchio\Correios\Correios;
+use MarceloFecchio\Correios\Token;
+
+function obterToken(Correios $correios): Token
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+
+    if (isset($_SESSION['correios_token'])) {
+        $token = Token::deArray($_SESSION['correios_token']);
+        if ($token->estaValido(margemSegundos: 300)) {   // 5 minutos de margem
+            return $token;
+        }
+    }
+
+    $token = $correios->token()->gerar();
+    $_SESSION['correios_token'] = $token->paraArray();
+
+    return $token;
+}
+
+$preco = $correios->preco()->calcular(token: obterToken($correios), consulta: $consulta);
+```
+
+Processos sem sessão (filas, jobs, CLI) devem usar um **cache compartilhado** (PSR-16 ou o Cache do Laravel), com
+**trava** para que vários processos não renovem o token ao mesmo tempo. Veja `exemplos/laravel/EnvioCorreiosService.php`.
+
+O `Token` também expõe `cartaoPostagem`, `contrato`, `diretoriaRegional`, `cnpj`, `apis` (ids das APIs liberadas) e
+`permiteApi($id)`. O valor do token não aparece em `var_dump()`.
+
+## Fluxo completo de envio
+
+```
+token → serviços do cartão → CEP → preço e prazo → pré-postagem → rótulo → postagem na agência → rastreamento
+```
+
+```php
+$token = obterToken($correios);
+
+$servicos = $correios->contrato()->listarTodosServicos($token);              // códigos habilitados
+$endereco = $correios->cep()->consultar($token, '01001-000')->paraEndereco('100', 'Apto 12');
+
+$volume = new Volume(pesoGramas: 800, formato: FormatoObjeto::CaixaPacote, comprimento: 30, largura: 20, altura: 10);
+$preco = $correios->preco()->calcular($token, new ConsultaPreco('sedex', '01310100', $endereco->cep, $volume));
+$prazo = $correios->prazo()->calcular($token, new ConsultaPrazo('sedex', '01310100', $endereco->cep));
+
+$nova = new NovaPrePostagem(
+    destinatario: new Pessoa('Maria Aparecida Souza', $endereco, '529.982.247-25', 'maria@exemplo.com'),
+    servico: 'sedex',
+    volume: $volume,
+    itens: [Item::comValor('Teclado para notebook', 1, '250,00')],
+    chaveNFe: $chaveDaNfe,                                                       // ou numeroNotaFiscal, ou só os itens
+);
+$criada = $correios->prePostagem()->criar($token, $nova);
+
+if ($criada->podeImprimirRotulo()) {                                             // status 2 (PREPOSTADO)
+    $recibo = $correios->rotulo()->solicitar($token, SolicitacaoRotulo::porIds([$criada->id]));
+    $correios->rotulo()->baixar($token, $recibo)->salvar('/tmp/rotulo.pdf');
+}
+// ou a etiqueta em ZPL gerada pelo componente:
+$zpl = $correios->etiquetas()->postagemDePrePostagem($nova, $criada);
+
+// depois da postagem física na agência:
+$rastreamento = $correios->rastro()->rastrear($token, $criada->codigoObjeto);
+$dados = $correios->prePostagem()->dadosPostagem($token, $criada->codigoObjeto);  // valor e peso tarifados
+```
+
+### Logística reversa
+
+O **remetente é o cliente que devolve** (com e-mail, obrigatório) e o **destinatário é a loja**:
+
+```php
+$reversa = $correios->prePostagem()->criar($token, new NovaPrePostagem(
+    destinatario: $loja,
+    servico: 'sedex_reverso',
+    volume: $volume,
+    remetente: $cliente,                                // precisa ter e-mail
+    itens: [new Item('Teclado para notebook', 1, 25000)],
+    logisticaReversa: true,
+    dataValidadeLogReversa: new DateTimeImmutable('+10 days'),
+));
+```
+
+## Módulos
+
+Todos os métodos autenticados recebem o token como primeiro argumento (`Token` ou o texto do token) e devolvem
+objetos tipados. Cada resposta expõe `respostaBruta()` com o JSON original. Valores em dinheiro são `int` em
+**centavos** (nunca `float`); use `Utilitarios\Dinheiro` para converter.
+
+| Módulo | Métodos |
+|---|---|
+| `token()` | `gerar(): Token` |
+| `contrato()` | `listarServicos($token, $pagina = 0, $tamanho = 50)`, `listarTodosServicos($token)`, `consultarServico($token, 'sedex')` |
+| `cep()` | `consultar($token, '01001-000'): EnderecoCep` |
+| `preco()` | `calcular($token, ConsultaPreco)`, `calcularLote($token, [ConsultaPreco, ...])` (até 5), `servicosAdicionais($token, 'sedex')` |
+| `prazo()` | `calcular($token, ConsultaPrazo)`, `calcularLote($token, [...])`, `dataPrevista($token, ConsultaDataPrevista)` |
+| `prePostagem()` | `criar`, `criarAssincrona` (devolve o recibo), `consultarAssincrona`, `cancelar`, `cancelarPorCodigoObjeto`, `cancelarLote`, `consultarCancelamentoLote`, `dadosPostagem` |
+| `rotulo()` | `solicitar($token, SolicitacaoRotulo): ReciboRotulo`, `baixar($token, $recibo): ArquivoRotulo` |
+| `dce()` | `imprimirDace($token, SolicitacaoDace): Dace`, `atualizarDocumentoFiscal($token, $codigoObjeto, $chave, $numeroNota)` |
+| `rastro()` | `rastrear($token, $codigo)` (todos os eventos), `rastrearVarios($token, [...])` (até 50, último evento) |
+| `etiquetas()` | ZPL sem chamada à API — ver [Etiquetas](#etiquetas) |
+
+Exemplos executáveis de cada módulo em [`exemplos/`](exemplos) (credenciais por variáveis de ambiente).
+
+**Lotes de Preço e Prazo:** HTTP 206 indica que parte dos itens falhou. `ResultadoLote` traz cada item com
+`sucesso()`/`erro()`, correlacionado pelo `nuRequisicao` (numerado a partir de 1 quando não informado):
+
+```php
+$lote = $correios->preco()->calcularLote($token, [$consultaSedex, $consultaPac]);
+foreach ($lote->itens as $item) {
+    echo $item->nuRequisicao, ': ', $item->sucesso() ? $item->resultado->precoFinalCentavos : $item->erro();
+}
+```
+
+**Paginação (Meu Contrato):** `listarTodosServicos()` percorre as páginas (a primeira é 0) e aceita `itens` como
+lista ou objeto único.
+
+**DCe e DACE:** sem nota fiscal, crie a pré-postagem com os itens e `emiteDCe: true` e imprima a DACE:
+`TipoDace::Completa`/`Resumida` devolvem PDF (`conteudoBinario()`); `TipoDace::Termica` devolve texto para a
+impressora (`texto()`). Com NF-e emitida depois, use `atualizarDocumentoFiscal()`.
+
+## Pré-postagem assíncrona e rótulo
+
+| `statusAtual` | Significado |
+|:-:|---|
+| 1 | PREATENDIDO |
+| **2** | **PREPOSTADO — o único que permite imprimir o rótulo** |
+| 3 | POSTADO |
+| 4 | EXPIRADO (não postado até o `prazoPostagem`; padrão: criação + 14 dias, máximo 90) |
+| 5 | CANCELADO |
+| 6 | ESTORNADO |
+| 7 | PENDENTE (transitório) |
+
+- Na via assíncrona, `situacao = PROCESSADO` **não basta**: a pré-postagem fica alguns minutos no status **7** antes
+  do **2**. Em homologação (04/10/2026) isso aconteceu também na criação **síncrona**.
+- O rótulo pedido com status 7 é aceito, mas o download falha com **PPN-288** (`ErroPrePostagemPendente`) e
+  **aquele recibo nunca passa a funcionar**: aguarde o status 2 e **solicite o rótulo de novo**.
+- O componente **não faz espera nem repetição**. A rotina abaixo é da aplicação (intervalo crescente e limite):
+
+```php
+$recibo = $correios->prePostagem()->criarAssincrona($token, $nova);
+
+foreach ([5, 10, 30, 60, 120] as $segundos) {           // na aplicação real: um job agendado, não sleep()
+    sleep($segundos);
+    $processamento = $correios->prePostagem()->consultarAssincrona($token, $recibo);
+    if ($processamento->situacao === SituacaoProcessamento::Falha) {
+        throw new RuntimeException(implode(' ', $processamento->todasAsMensagens()));
+    }
+    if ($processamento->prontaParaRotulo()) {             // PROCESSADO e status 2
+        $id = $processamento->prePostagens[0]->id;
+        try {
+            $pdf = $correios->rotulo()->baixar($token, $correios->rotulo()->solicitar($token, SolicitacaoRotulo::porIds([$id])));
+        } catch (ErroPrePostagemPendente) {
+            continue;                                     // o recibo morreu: solicite de novo na próxima volta
+        }
+        break;
+    }
+}
+```
+
+- Um recibo com várias pré-postagens devolve **um único PDF** A4 com as etiquetas lado a lado. Repetir a solicitação
+  gera novo recibo, mas mantém o código do objeto. O rótulo só pode ser emitido com as **mesmas credenciais** que
+  criaram a pré-postagem.
+- Para impressora térmica, `LayoutImpressao::Linear100x150` ou `Linear100x80` (não testados em homologação).
+
+## Serviços adicionais
+
+- Descubra os adicionais aceitos e os **obrigatórios** com `preco()->servicosAdicionais($token, 'sedex')`:
+  `obrigatorio()` quando `sgIndicador = O`, `opcional()` quando `P`. A obrigatoriedade pode mudar com a vigência.
+- **Cotação × pré-postagem:** na API Preço, o **SEDEX REVERSO (03247)** exige o adicional **016** (sem ele:
+  `ERP-049`); no PAC REVERSO ele é opcional. Na **Pré-postagem o 016 não é exigido** — não replique
+  automaticamente na pré-postagem os adicionais exigidos na cotação.
+- **AR:** emitir o aviso de recebimento exige o adicional **001** na pré-postagem (`ServicoAdicional::avisoRecebimento()`).
+- **Valor declarado:** o código muda por serviço (`019` no SEDEX, `064` no PAC nos testes) — informe-o:
+  `ServicoAdicional::valorDeclarado('019', 25000)`.
+
+## Etiquetas
+
+Dois caminhos para a etiqueta de postagem; a escolha é da aplicação:
+
+| | Rótulo oficial (PDF) | ZPL do componente |
+|---|---|---|
+| Quem gera | API dos Correios (`rotulo()`) | `etiquetas()`, sem chamada à API |
+| Formato | PDF A4 (ou layouts lineares) | Texto ZPL para impressora térmica |
+| Requisitos | Status 2, mesmas credenciais da criação | Código do objeto da pré-postagem |
+
+### Documentos em ZPL
+
+```php
+// 1. Etiqueta de postagem 10x15 cm, logo após criar a pré-postagem
+$etiqueta = $correios->etiquetas()->postagemDePrePostagem($nova, $criada, observacoes: 'Pedido 12345');
+
+// 2. DANFE simplificado a partir do XML autorizado da NF-e, com o código de rastreamento
+$danfe = $correios->etiquetas()->danfeSimplificada(DadosDanfe::deXml($xmlNfe), codigoEnvio: $criada->codigoObjeto);
+
+// 3. Um único envio à impressora
+$tudo = $correios->etiquetas()->juntar($etiqueta, $danfe);
+$tudo->salvar('/tmp/pedido-12345.zpl');   // ou (string) $tudo
+```
+
+- **Postagem** (`postagem(DadosEtiquetaPostagem)` ou `postagemDePrePostagem(...)`): logo dos Correios, DataMatrix de
+  164 caracteres, logo do serviço (pelo código, via configuração), NF/pedido, contrato, volume, peso, siglas dos
+  adicionais, código do objeto e CEP em Code 128, destinatário, remetente, observações e, em homologação, a marca
+  "HOMOLOGACAO - IMPRESSAO DE TESTE".
+- **DANFE Simplificado - Etiqueta** (`danfeSimplificada`): título, tipo de operação, número, série, emissão,
+  emitente (nome, CNPJ, IE, UF), chave de acesso em Code 128 subconjunto C e em texto, protocolo de autorização,
+  destinatário (nome, CPF/CNPJ, IE, UF, endereço) e, opcionalmente, o código de envio. **Não lista itens nem valores.**
+  `DadosDanfe::deXml()` só aceita nota **autorizada** (`cStat` 100 ou 150) e recusa contingência EPEC. Também pode ser
+  montado à mão. `DadosDanfe` expõe `chaveAcesso` e `numero` para reutilizar na pré-postagem.
+- **Declaração de conteúdo:** ainda não disponível em ZPL nesta versão. Use a **DCe** com impressão da **DACE**
+  (`emiteDCe: true` + `dce()->imprimirDace()`), que é o documento oficial dos Correios para envios sem nota.
+
+Saída: **somente ZPL**, UTF-8 sem BOM, de `^XA` a `^XZ` + quebra de linha. Mesma entrada → mesma saída. Confira no
+visualizador **Labelary**: <https://labelary.com/viewer.html> (8 dpmm para 203 dpi, 12 dpmm para 300 dpi; 4 × 6,2 pol
+para a postagem e 4 × 6 pol para o DANFE).
+
+### Enviar o ZPL à impressora (fora do componente)
+
+```php
+// Impressora de rede (porta 9100)
+$socket = fsockopen('192.168.0.50', 9100, $erro, $mensagem, 5);
+fwrite($socket, (string) $etiqueta);
+fclose($socket);
+```
+
+Também funciona por compartilhamento de impressora (`copy /b etiqueta.zpl \\servidor\zebra` no Windows,
+`lp -d zebra -o raw etiqueta.zpl` no Linux) ou pelo navegador com **Zebra Browser Print** ou **QZ Tray**.
+
+### Resolução
+
+203 dpi (8 pontos/mm) é o padrão; 300 dpi (12 pontos/mm) pela configuração (`etiquetas.resolucao = 300`) ou por
+parâmetro (`Resolucao::Dpi300`).
+
+**Escolha:** os templates são escritos uma vez, em 203 dpi, e o componente os **escala por 1,5** para 300 dpi
+(coordenadas, fontes, traços, larguras e módulos dos códigos: `^BY3` → `^BY5`, DataMatrix módulo 5 → 8). Assim um
+ajuste de layout é feito em um lugar só. Imagens `^GFA` não escalam: o pacote traz parciais de logo próprios em
+`resources/templates/300dpi/parciais/`, e a aplicação pode pôr em `300dpi/` um template inteiro de 300 dpi, que então
+é usado como está.
+
+### Configuração das etiquetas
+
+```php
+new ConfiguracaoEtiquetas(
+    resolucao: Resolucao::Dpi203,
+    diretorioTemplates: __DIR__ . '/templates-zpl',      // null = templates do pacote
+    logoCorreios: true,
+    logosPorServico: ['sedex' => 'logo_servico_sedex', 'pac' => 'logo_servico_pac', '03301' => 'logo_servico_pac'],
+    nomesServicos: ['sedex' => 'SEDEX', 'pac' => 'PAC'],
+    marcaHomologacao: null,                              // null = automático (só em homologação)
+    dataMatrixServicosAdicionais: '250000000000',        // campo fixo do DataMatrix (valor do sistema antigo)
+    siglasAdicionais: ['019' => 'VD', '016' => 'LRSV'],  // sem entrada: valor declarado → VD, 001 → AR
+);
+```
+
+Logos incluídos: `logo_correios`, `logo_servico_sedex`, `logo_servico_pac`, `logo_servico_carta` (203 e 300 dpi).
+Para gerar outro logo a partir de um arquivo oficial: `ImagemZpl::deArquivo('logo.png', x: 41, y: 56, larguraMaxima: 224, alturaMaxima: 224)`
+(requer GD). Não desenhe nem recrie logotipos.
+
+### Templates próprios
+
+Informe `diretorioTemplates`. Arquivo ausente no diretório da aplicação cai no do pacote. Marcadores:
+
+| Sintaxe | Uso |
+|---|---|
+| `{{nome}}` | valor escapado para campos com `^FH` (`_` → `_5F`, `^` → `_5E`, `~` → `_7E`, `\` → `_5C`, `{` → `_7B`, `}` → `_7D`) |
+| `{{{nome}}}` | valor cru, só para dados validados (códigos de barras, DataMatrix) |
+| `{{>nome}}` | parcial `parciais/nome.zpl`; some do resultado se não estiver configurado |
+
+Linhas `^FX` são removidas; marcador sem valor lança `ErroTemplate`. Acentuação: `^CI28` (UTF-8).
+
+**`postagem.zpl`** — `{{{datamatrix}}}`, `{{{codigo_objeto}}}`, `{{{destinatario_cep}}}`, `{{linha_nf}}` (16),
+`{{contrato}}` (10), `{{volume}}` (7), `{{peso_gramas}}` (6), `{{nome_servico}}` (22), `{{siglas_adicionais}}` (12),
+`{{destinatario_nome}}` (50), `{{destinatario_endereco}}` (90), `{{destinatario_bairro}}` (30),
+`{{destinatario_cep_hifen}}`, `{{destinatario_cidade_uf}}` (34), `{{remetente_nome}}` (50),
+`{{remetente_endereco}}` (90), `{{remetente_bairro}}` (30), `{{remetente_cep_hifen}}`, `{{remetente_cidade_uf}}` (34),
+`{{observacoes}}` (110); parciais `{{>logo_correios}}`, `{{>logo_servico}}`, `{{>marca_homologacao}}`.
+
+**`danfe_simplificada.zpl`** — `{{{chave_acesso}}}`, `{{tipo_operacao}}`, `{{numero_nf}}`, `{{serie}}`,
+`{{data_emissao}}`, `{{emitente_nome}}` (50), `{{emitente_cnpj}}`, `{{emitente_ie}}` (15), `{{emitente_uf}}`,
+`{{emitente_endereco}}` (60), `{{chave_acesso_formatada}}`, `{{linha_protocolo}}` (68), `{{destinatario_nome}}` (50),
+`{{destinatario_documento}}` (45), `{{destinatario_uf}}`, `{{destinatario_endereco_linha1}}` (68),
+`{{destinatario_endereco_linha2}}` (68), `{{observacoes}}` (180); parcial `{{>danfe_codigo_envio}}` com
+`{{{codigo_envio}}}`.
+
+Entre parênteses, o limite em caracteres: o valor é cortado antes do escape.
+
+## Tratamento de erros
+
+```
+CorreiosException (interface)
+├── ErroValidacao            dados inválidos, antes de chamar a API (com o nome do campo)
+├── ErroConfiguracao         configuração ausente ou inválida
+├── ErroTemplate             template ZPL inválido ou marcador sem valor
+├── ErroConexao              falha de rede ou timeout (getPrevious() = exceção PSR-18)
+├── ErroAutenticacao         HTTP 401/403
+├── ErroLimiteRequisicoes    HTTP 429
+└── ErroApi                  demais erros, inclusive regras de negócio com HTTP 400, 404 ou 422
+    └── ErroPrePostagemPendente   PPN-288 (rótulo pedido com a pré-postagem pendente)
+```
+
+`ErroApi`, `ErroAutenticacao` e `ErroLimiteRequisicoes` expõem `statusHttp`, `mensagens`, `codigoErro`
+(ex.: `PPN-288`, `ERP-049`, `PPN-145-5`), `causa` e `respostaBruta` (JSON ou o texto bruto, como a página HTML de um
+erro 500). Os dois formatos de erro da API são lidos: `{"msgs": [...], "causa": ...}` e `{"mensagem": "PPN-288: ..."}`.
+
+```php
+try {
+    $preco = $correios->preco()->calcular($token, $consulta);
+} catch (ErroValidacao $e) {
+    // corrigir o dado: $e->campo
+} catch (ErroAutenticacao $e) {
+    // gerar outro token ou rever credenciais
+} catch (ErroApi $e) {
+    if ($e->codigoErro === 'ERP-049') {
+        // falta um adicional obrigatório na cotação
+    }
+    logger()->warning($e->getMessage(), ['codigo' => $e->codigoErro, 'http' => $e->statusHttp]);
+} catch (CorreiosException $e) {
+    // qualquer outro erro do componente
+}
+```
+
+Mensagens não incluem token, código de acesso nem senha. O log (PSR-3) mascara token, Basic Auth, CPF/CNPJ e omite
+o Base64 de rótulos e DACE.
+
+## Limitações conhecidas
+
+Pontos não testados, instáveis ou observados de forma diferente da especificação:
+
+- **Status 7 também na criação síncrona:** em homologação (04/10/2026) a pré-postagem síncrona voltou como
+  PENDENTE. Confira `podeImprimirRotulo()` antes de pedir o rótulo.
+- **PPN-288 com HTTP 200:** o download do rótulo pendente responde HTTP 200 com `{"mensagem": "PPN-288: ..."}`. O
+  componente trata esse caso como `ErroPrePostagemPendente`.
+- **Cancelamento automático em homologação:** pré-postagens pendentes de teste foram canceladas pelos Correios
+  minutos depois ("Etiqueta cancelada pelo sistema de captação").
+- **Cancelamento:** a resposta observada traz só `resultadoCancelamento` (texto). Cancelar uma pré-postagem já
+  cancelada responde `PPN-145-5`. O resultado do cancelamento em lote vem como lista (`ProcessamentoCancelamento::$itens`).
+- **`GET .../postada`** (dados da postagem) não foi testado: só responde depois da postagem física. Datas e medidas
+  ficam como texto.
+- **DACE** não foi obtida em homologação (PPN-376 com a pré-postagem pendente). O formato do tipo `T` (texto puro ou
+  Base64) não foi confirmado; `Dace::texto()` aceita os dois.
+- **Layouts de rótulo** diferentes de `PADRAO` e `tipoRotulo = R` não foram testados.
+- **Endpoints HTML** de declaração de conteúdo e AR falham no servidor de homologação e não fazem parte do componente.
+- **Fora do escopo desta versão:** Webhook, autenticação por contrato ou só por usuário, agências, faturas, faixas de
+  etiquetas, Pedido de Informação, serviços internacionais, lote de objetos simples, imagens de entrega e AR Digital.
+- **DataMatrix:** os campos `ServicosAdicionais` (`250000000000`), `ValorDeclarado`, telefone e `IDV` seguem o
+  sistema antigo, sem o manual de etiquetas dos Correios; são configuráveis. A leitura por equipamento dos Correios
+  não foi testada.
+- **DANFE simplificado:** os requisitos da Nota Técnica 2020.004 vêm de fonte secundária (posição da chave no canto
+  superior direito não aplicada); contingência EPEC não é suportada.
+- **Etiqueta de declaração de conteúdo em ZPL:** não implementada (falta o texto legal e o layout aprovados).
+- **Limites de peso e medidas por serviço** não são validados localmente: a API recusa.
+- **Certificados no Windows:** se o PHP não tiver um pacote de autoridades certificadoras (`curl.cainfo` vazio), as
+  chamadas falham com "self-signed certificate in certificate chain". Configure `curl.cainfo` no `php.ini`.
+
+## Testes
+
+```bash
+composer test               # Pest (unitários, HTTP simulado e Laravel)
+composer test:cobertura     # com cobertura (PCOV ou Xdebug), mínimo de 90%
+composer analise            # PHPStan, nível máximo
+composer estilo             # PHP-CS-Fixer (PER-CS 2.0), sem alterar arquivos
+composer qualidade          # tudo acima
+```
+
+Os snapshots de ZPL ficam em `tests/Fixtures/zpl`. Depois de mudar um template de propósito, regere-os com
+`ATUALIZAR_SNAPSHOTS=1 vendor/bin/pest` e confira o resultado no Labelary.
+
+**Integração com a homologação** (grupo `integracao`, pulado por padrão):
+
+```bash
+export CORREIOS_HOM_USUARIO=<CNPJ> CORREIOS_HOM_CODIGO_ACESSO=... CORREIOS_HOM_CNPJ=<CNPJ> \
+       CORREIOS_HOM_CARTAO=... CORREIOS_HOM_CONTRATO=...
+vendor/bin/pest --group=integracao
+```
+
+Os testes geram **um** token por execução, criam e cancelam pré-postagens de teste e não chamam `.../postada` nem os
+endpoints HTML. Nunca grave credenciais no repositório.
+
+## Contribuição, versionamento e licença
+
+- Abra uma issue ou um pull request. Antes, rode `composer qualidade`.
+- Versionamento semântico; mudanças registradas no [CHANGELOG](CHANGELOG.md).
+- Licença [MIT](LICENSE).

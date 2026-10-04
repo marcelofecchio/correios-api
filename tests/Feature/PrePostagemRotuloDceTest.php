@@ -194,13 +194,13 @@ describe('Cancelamento e dados da postagem', function (): void {
             ->and((string) $requisicaoId->getBody())->toBe('')
             ->and($requisicaoObjeto->getUri()->getPath())->toBe('/prepostagem/v1/prepostagens/objeto/AB043180865BR')
             ->and((string) $requisicaoObjeto->getBody())->toBe('')
-            ->and($porId->resultado)->toBe('CANCELADO')
-            ->and($porId->mensagem)->toContain('cancelada')
-            ->and($porId->idRecibo)->toBe('c1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6');
+            ->and($porId->resultado)->toBe('Cancelamento realizado com sucesso!')
+            ->and($porId->mensagem)->toBeNull()
+            ->and($porId->idRecibo)->toBeNull();
     });
 
-    it('cancela em lote com DELETE com corpo JSON e consulta o resultado', function (): void {
-        $cliente = clienteMock(respostaFixture(200, 'cancelamento_lote.json'), respostaFixture(200, 'cancelamento_lote_resultado.json'));
+    it('cancela em lote com DELETE com corpo JSON e lê o resultado em lista (formato observado)', function (): void {
+        $cliente = clienteMock(respostaFixture(200, 'cancelamento_lote.json'), respostaFixture(200, 'cancelamento_lote_resultado_lista.json'));
         $prePostagem = correiosTeste($cliente)->prePostagem();
         $recibo = $prePostagem->cancelarLote(tokenTeste(), idsPrePostagens: ['PR1', '', 'PR2']);
         $requisicao = ultimaRequisicao($cliente);
@@ -210,21 +210,40 @@ describe('Cancelamento e dados da postagem', function (): void {
             ->and($requisicao->getUri()->getPath())->toBe('/prepostagem/v1/prepostagens/assincrona')
             ->and($requisicao->getHeaderLine('Content-Type'))->toBe('application/json')
             ->and(corpoJson($requisicao))->toBe(['idsPrePostagens' => ['PR1', 'PR2']])
-            ->and($recibo->idRecibo)->toBe('f479b6af0af84f12b9b6af0af86f12261002')
-            ->and(ultimaRequisicao($cliente)->getUri()->getPath())->toBe('/prepostagem/v1/prepostagens/canceladas/assincrona/f479b6af0af84f12b9b6af0af86f12261002')
-            ->and($resultado->situacao)->toBe('PROCESSADO')
-            ->and($resultado->mensagens)->toBe(['1 pré-postagem cancelada.']);
+            ->and($recibo->idRecibo)->toBe('cc5607bb-c2c1-4e5e-9607-bbc2c18e5e94')
+            ->and(ultimaRequisicao($cliente)->getUri()->getPath())->toBe('/prepostagem/v1/prepostagens/canceladas/assincrona/cc5607bb-c2c1-4e5e-9607-bbc2c18e5e94')
+            ->and($resultado->situacao)->toBeNull()
+            ->and($resultado->itens)->toHaveCount(2)
+            ->and($resultado->itens[0]->idPrePostagem)->toBe('PRxxxxxxxxxxxxxxxxxxxxx1')
+            ->and($resultado->itens[0]->codigoErro)->toBe('PPN-145-5')
+            ->and($resultado->itens[0]->data?->format('Y-m-d H:i:s'))->toBe('2026-10-04 14:18:36')
+            ->and($resultado->itens[1]->codigoErro)->toBeNull()
+            ->and($resultado->itensComErro())->toHaveCount(1)
+            ->and($resultado->mensagens)->toHaveCount(2);
+    });
+
+    it('aceita o resultado do cancelamento em lote como objeto', function (): void {
+        $resultado = correiosTeste(clienteMock(respostaFixture(200, 'cancelamento_lote_resultado.json')))->prePostagem()->consultarCancelamentoLote(tokenTeste(), 'r');
+
+        expect($resultado->situacao)->toBe('PROCESSADO')
+            ->and($resultado->mensagens)->toBe(['1 pré-postagem cancelada.'])
+            ->and($resultado->itens)->toBe([]);
     });
 
     it('aceita códigos de objeto no lote e respostas em texto', function (): void {
         $cliente = clienteMock(new GuzzleHttp\Psr7\Response(200, [], '"abc123"'), new GuzzleHttp\Psr7\Response(200, [], 'CONCLUIDO'), respostaJson(200, ['msgs' => ['ok'], 'mensagem' => 'feito']));
         $prePostagem = correiosTeste($cliente)->prePostagem();
         $recibo = $prePostagem->cancelarLote(tokenTeste(), codigosObjetos: ['AB043180865BR']);
+        $corpo = corpoJson(ultimaRequisicao($cliente));
+        $emTexto = $prePostagem->consultarCancelamentoLote(tokenTeste(), 'abc123');
+        $comMensagens = $prePostagem->consultarCancelamentoLote(tokenTeste(), 'abc123');
 
-        expect(corpoJson(ultimaRequisicao($cliente)))->toBe(['codigosObjetos' => ['AB043180865BR']])
+        expect($corpo)->toBe(['codigosObjetos' => ['AB043180865BR']])
             ->and($recibo->idRecibo)->toBe('abc123')
-            ->and($prePostagem->consultarCancelamentoLote(tokenTeste(), 'abc123')->situacao)->toBe('CONCLUIDO')
-            ->and($prePostagem->consultarCancelamentoLote(tokenTeste(), 'abc123')->mensagens)->toBe(['ok', 'feito'])
+            ->and($emTexto->situacao)->toBe('CONCLUIDO')
+            ->and($emTexto->itens)->toBe([])
+            ->and($emTexto->respostaBruta())->toBe(['resposta' => 'CONCLUIDO'])
+            ->and($comMensagens->mensagens)->toBe(['ok', 'feito'])
             ->and(fn() => $prePostagem->cancelarLote(tokenTeste()))->toThrow(ErroValidacao::class);
     });
 
@@ -292,9 +311,28 @@ describe('Rótulo oficial', function (): void {
             ->and(fn() => $rotulo->baixar(tokenTeste(), ' '))->toThrow(ErroValidacao::class);
     });
 
-    it('lança ErroPrePostagemPendente no download com PPN-288', function (): void {
-        correiosTeste(clienteMock(respostaFixture(400, 'erro_ppn288.json')))->rotulo()->baixar(tokenTeste(), 'f479b6af');
-    })->throws(ErroPrePostagemPendente::class, 'PPN-288');
+    it('lança ErroPrePostagemPendente no download com PPN-288 (HTTP 400 ou 200)', function (int $status): void {
+        try {
+            correiosTeste(clienteMock(respostaFixture($status, 'erro_ppn288.json')))->rotulo()->baixar(tokenTeste(), 'f479b6af');
+            $this->fail('Deveria lançar ErroPrePostagemPendente');
+        } catch (ErroPrePostagemPendente $e) {
+            expect($e->codigoErro)->toBe('PPN-288')
+                ->and($e->statusHttp)->toBe($status)
+                ->and($e->getMessage())->toContain('baixar rótulo');
+        }
+    })->with([
+        'HTTP 400' => 400,
+        'HTTP 200, observado em homologação em 04/10/2026' => 200,
+    ]);
+
+    it('trata mensagem de erro com HTTP 200 também na solicitação do rótulo e na DACE', function (): void {
+        $erro = ['msgs' => ['Pré-postagem não encontrada.']];
+        $cliente = clienteMock(respostaJson(200, $erro), respostaJson(200, $erro));
+        $correios = correiosTeste($cliente);
+
+        expect(fn() => $correios->rotulo()->solicitar(tokenTeste(), SolicitacaoRotulo::porIds(['PR1'])))->toThrow(ErroApi::class, 'Pré-postagem não encontrada')
+            ->and(fn() => $correios->dce()->imprimirDace(tokenTeste(), new SolicitacaoDace(TipoDace::Completa, ['PR1'])))->toThrow(ErroApi::class, 'Pré-postagem não encontrada');
+    });
 
     it('nomeia o arquivo pelo recibo se a API não mandar nome', function (): void {
         $corpo = json_decode(arquivoFixture('respostas/rotulo_download.json'), true);

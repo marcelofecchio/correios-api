@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarceloFecchio\Correios\Servicos;
 
 use MarceloFecchio\Correios\Configuracao;
+use MarceloFecchio\Correios\Excecoes\CorreiosException;
+use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
 use MarceloFecchio\Correios\Http\ClienteHttp;
 use MarceloFecchio\Correios\Http\Requisicao;
 use MarceloFecchio\Correios\Http\RespostaHttp;
+use MarceloFecchio\Correios\Http\TratadorErros;
 use MarceloFecchio\Correios\Mapeadores\Leitor;
 use MarceloFecchio\Correios\Token;
 
@@ -59,6 +62,27 @@ abstract class Servico
     protected function leitor(RespostaHttp $resposta): Leitor
     {
         return Leitor::de($resposta->json());
+    }
+
+    /**
+     * Resposta de sucesso sem o campo esperado. Se o corpo trouxer mensagens de erro (a API devolve, por exemplo,
+     * o PPN-288 com HTTP 200 no download do rótulo), lança a exceção correspondente; senão, um `ErroApi` genérico.
+     */
+    protected function respostaSemCampo(RespostaHttp $resposta, string $campo, string $operacao): CorreiosException
+    {
+        $json = $resposta->json();
+        if (is_array($json) && TratadorErros::mensagens($json) !== []) {
+            return TratadorErros::excecao($resposta, new Requisicao('GET', '', $operacao));
+        }
+
+        return new ErroApi(
+            sprintf('A resposta de "%s" não trouxe o campo "%s".', $operacao, $campo),
+            $resposta->status,
+            [],
+            null,
+            null,
+            is_array($json) ? $json : $resposta->corpo,
+        );
     }
 
     /** Segmento de caminho codificado para URL. */

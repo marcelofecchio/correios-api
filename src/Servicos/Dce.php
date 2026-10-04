@@ -6,7 +6,6 @@ namespace MarceloFecchio\Correios\Servicos;
 
 use MarceloFecchio\Correios\Dto\Identificadores;
 use MarceloFecchio\Correios\Dto\SolicitacaoDace;
-use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
 use MarceloFecchio\Correios\Respostas\Dace;
 use MarceloFecchio\Correios\Token;
@@ -31,10 +30,7 @@ final class Dce extends Servico
 
         $resposta = $this->chamar('POST', '/prepostagem/v1/prepostagens/dce/dace/impressao', 'imprimir DACE', $token, json: $corpo);
         $dados = $this->leitor($resposta);
-        $conteudo = $dados->texto('dados');
-        if ($conteudo === null) {
-            throw new ErroApi('A resposta da impressão da DACE não trouxe o campo "dados".', $resposta->status, [], null, null, $dados->bruto() ?: $resposta->corpo);
-        }
+        $conteudo = $dados->texto('dados') ?? throw $this->respostaSemCampo($resposta, 'dados', 'imprimir DACE');
 
         return new Dace($solicitacao->tipoDace, $dados->textos('objetos'), $conteudo, $dados->bruto());
     }

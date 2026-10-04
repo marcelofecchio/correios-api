@@ -107,6 +107,7 @@ describe('Camada HTTP interna', function (): void {
     it('lê mensagens de vários formatos de erro', function (): void {
         expect(TratadorErros::mensagens(['msgs' => ['a', '', 1], 'mensagens' => ['b'], 'mensagem' => 'c', 'txErro' => 'd', 'message' => ' ']))->toBe(['a', '1', 'b', 'c', 'd'])
             ->and(TratadorErros::codigoErro(['sem código', 'SRO-020: não encontrado']))->toBe('SRO-020')
+            ->and(TratadorErros::codigoErro(['PPN-145-5: Operação não realizada!']))->toBe('PPN-145-5')
             ->and(TratadorErros::codigoErro(['nada']))->toBeNull();
     });
 

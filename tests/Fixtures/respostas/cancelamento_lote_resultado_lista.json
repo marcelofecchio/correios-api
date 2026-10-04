@@ -1,0 +1,14 @@
+[
+    {
+        "IdPrePostagem": "PRxxxxxxxxxxxxxxxxxxxxx1",
+        "data": "2026-10-04T14:18:36.93",
+        "idRecibo": "cc5607bb-c2c1-4e5e-9607-bbc2c18e5e94",
+        "mensagem": "PPN-145-5: Operação não realizada! A pré-postagem está com o status Cancelado. Somente poderão ser canceladas as pré-postagens que estejam com status igual a pré-postado."
+    },
+    {
+        "IdPrePostagem": "PRxxxxxxxxxxxxxxxxxxxxx2",
+        "data": "2026-10-04T14:18:37.10",
+        "idRecibo": "cc5607bb-c2c1-4e5e-9607-bbc2c18e5e94",
+        "mensagem": "Cancelamento realizado com sucesso!"
+    }
+]

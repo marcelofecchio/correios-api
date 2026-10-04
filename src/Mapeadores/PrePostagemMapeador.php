@@ -11,9 +11,11 @@ use MarceloFecchio\Correios\Dto\ServicoAdicional;
 use MarceloFecchio\Correios\Enums\SituacaoProcessamento;
 use MarceloFecchio\Correios\Enums\StatusPrePostagem;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
+use MarceloFecchio\Correios\Http\TratadorErros;
 use MarceloFecchio\Correios\Respostas\AdicionalPostagem;
 use MarceloFecchio\Correios\Respostas\DadosPostagem;
 use MarceloFecchio\Correios\Respostas\FalhaProcessamento;
+use MarceloFecchio\Correios\Respostas\ItemCancelamento;
 use MarceloFecchio\Correios\Respostas\PrePostagemCriada;
 use MarceloFecchio\Correios\Respostas\ProcessamentoAssincrono;
 use MarceloFecchio\Correios\Respostas\ProcessamentoCancelamento;
@@ -169,7 +171,7 @@ final class PrePostagemMapeador
         if (!is_array($json)) {
             $texto = is_string($json) ? $json : trim($corpo);
 
-            return new ProcessamentoCancelamento($texto !== '' ? $texto : null, [], ['resposta' => $texto]);
+            return new ProcessamentoCancelamento(situacao: $texto !== '' ? $texto : null, bruto: ['resposta' => $texto]);
         }
 
         $dados = new Leitor($json);
@@ -178,9 +180,27 @@ final class PrePostagemMapeador
             $mensagens[] = $mensagem;
         }
 
+        // Observado: lista na raiz, um item por pré-postagem
+        $itens = [];
+        $fonte = array_is_list($json) ? $dados->itensRaiz() : $dados->lista('itens');
+        foreach ($fonte as $item) {
+            $mensagemItem = $item->texto('mensagem');
+            if ($mensagemItem !== null) {
+                $mensagens[] = $mensagemItem;
+            }
+            $itens[] = new ItemCancelamento(
+                idPrePostagem: $item->texto('IdPrePostagem') ?? $item->texto('idPrePostagem') ?? $item->texto('id'),
+                codigoObjeto: $item->texto('codigoObjeto'),
+                data: $item->data('data'),
+                mensagem: $mensagemItem,
+                codigoErro: $mensagemItem !== null ? TratadorErros::codigoErro([$mensagemItem]) : null,
+            );
+        }
+
         return new ProcessamentoCancelamento(
-            situacao: $dados->texto('situacao') ?? $dados->texto('resultadoCancelamento') ?? $dados->texto('status'),
+            situacao: array_is_list($json) ? null : ($dados->texto('situacao') ?? $dados->texto('resultadoCancelamento') ?? $dados->texto('status')),
             mensagens: array_values(array_unique($mensagens)),
+            itens: $itens,
             bruto: $json,
         );
     }

@@ -150,14 +150,18 @@ it('06 a 09 cria a pré-postagem, baixa o rótulo e cancela', function (): void 
     $etiqueta = $correios?->etiquetas()->postagemDePrePostagem($nova, $criada);
     expect((string) $etiqueta)->toContain((string) $criada?->codigoObjeto);
 
+    // Rótulo: com status 2 o PDF deve vir; com status 7 (PENDENTE) o download deve lançar ErroPrePostagemPendente
+    // (observado em homologação: PPN-288 com HTTP 200). O componente não espera nem repete.
+    $recibo = $correios?->rotulo()->solicitar($token, SolicitacaoRotulo::porIds([$criada?->id ?? '']));
+    expect($recibo?->idRecibo)->not->toBeEmpty();
     if ($criada?->status === StatusPrePostagem::Prepostado) {
-        $recibo = $correios?->rotulo()->solicitar($token, SolicitacaoRotulo::porIds([$criada->id]));
         try {
-            $pdf = $correios?->rotulo()->baixar($token, $recibo);
-            expect($pdf?->conteudoBinario())->toStartWith('%PDF');
+            expect($correios?->rotulo()->baixar($token, $recibo)->conteudoBinario())->toStartWith('%PDF');
         } catch (ErroPrePostagemPendente) {
-            // Em homologação o PDF pode demorar; o componente não faz espera nem repetição.
+            // O status pode ter voltado a ser avaliado como pendente no momento do download.
         }
+    } else {
+        expect(fn() => $correios?->rotulo()->baixar($token, $recibo))->toThrow(ErroPrePostagemPendente::class, 'PPN-288');
     }
 
     $cancelamento = $correios?->prePostagem()->cancelar($token, $criada?->id ?? '');

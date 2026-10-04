@@ -98,14 +98,14 @@ final class TratadorErros
     }
 
     /**
-     * Código no padrão `LETRAS-NÚMEROS:` no início de uma mensagem (ex.: `PPN-288`, `ERP-049`).
+     * Código no padrão `LETRAS-NÚMEROS:` no início de uma mensagem (ex.: `PPN-288`, `ERP-049`, `PPN-145-5`).
      *
      * @param list<string> $mensagens
      */
     public static function codigoErro(array $mensagens): ?string
     {
         foreach ($mensagens as $mensagem) {
-            if (preg_match('/^\s*([A-Z]{2,6}-\d{1,6})\s*:/', $mensagem, $m) === 1) {
+            if (preg_match('/^\s*([A-Z]{2,6}-\d{1,6}(?:-\d{1,6})*)\s*:/', $mensagem, $m) === 1) {
                 return $m[1];
             }
         }
