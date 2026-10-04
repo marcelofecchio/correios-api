@@ -63,7 +63,7 @@ Os caminhos são relativos à raiz do projeto. A pasta `doc/` está organizada a
 2. **Use os nomes exatos** de campos, tipos, tamanhos, obrigatoriedades e padrões que estão nos arquivos. **Não invente campos nem endpoints.**
 3. Trechos marcados como **"ainda não testado"**, **"a confirmar"** ou **"não observado"** são lacunas conhecidas: implemente de forma defensiva (aceite as variações razoáveis, valide a resposta antes de usar) e liste essas lacunas no README, na seção "Limitações conhecidas".
 4. **Não é preciso acessar a internet** para consultar a especificação: tudo o que o componente precisa está nos arquivos. Se faltar alguma informação que não esteja neles, **pare e pergunte** ao usuário em vez de supor.
-5. A coleção do Postman **contém credenciais de homologação**. Use-a só como referência de requisições; **nunca copie credenciais** para código, testes, fixtures, exemplos ou README.
+5. A coleção do Postman traz as variáveis de credenciais **vazias ou fictícias** (preencha-as localmente, sem versionar). Use-a só como referência de requisições; **nunca copie credenciais** para código, testes, fixtures, exemplos ou README.
 
 ### 2.3 Ambientes
 
@@ -607,7 +607,7 @@ correios-api/
 - **Token:** `estaValido()` com margem, ida e volta com `paraArray()`/`deArray()`, aceitação de `Token|string`, leitura de `dr`, `contrato` e `apis`.
 - **Métodos de etiqueta (4.7.3):** `postagem()` e `postagemDePrePostagem()` geram o mesmo ZPL para os mesmos dados; `danfeSimplificada()` com e sem código de envio; ZPL do DANFE sem itens nem valores; `juntar()` preserva a ordem e recusa resoluções diferentes; `EtiquetaZpl::quantidade` correto; saída sem BOM, começando em `^XA` e terminando em `^XZ`; mesma entrada → mesma saída.
 - **ZPL:** testes de **snapshot** comparando com arquivos `.zpl` esperados em `tests/Fixtures`; acentuação; escape de `^` e `~`; truncamento; placeholder sem valor; paginação da declaração de conteúdo; 203 e 300 dpi.
-- **DANFE:** parse de pelo menos dois XMLs de exemplo (PJ→PF e PJ→PJ) e de um XML inválido ou não autorizado; dígito verificador da chave; etiqueta sem código de envio. Use a tabela de testes da seção 8 de `correios-danfe-simplificada-zpl.md`. A pasta `doc/legado/danfe-simplificada-zpl/` traz dois XML autorizados — `nfe-venda-pf.xml` (venda para pessoa física, o caso típico, com dados **reais**) e `nfe-venda-pj.xml` (venda para pessoa jurídica, 10 itens, já com dados **fictícios**) — e o guia traz uma função de leitura já testada com os dois (seção 7.5). Use-os como base das fixtures; no de pessoa física, **substitua os dados reais (nomes, CPF/CNPJ, endereços, chave) por fictícios** — não versione o XML original.
+- **DANFE:** parse de pelo menos dois XMLs de exemplo (PJ→PF e PJ→PJ) e de um XML inválido ou não autorizado; dígito verificador da chave; etiqueta sem código de envio. Use a tabela de testes da seção 8 de `correios-danfe-simplificada-zpl.md`. A pasta `doc/legado/danfe-simplificada-zpl/` traz dois XML autorizados — `nfe-venda-pf.xml` (venda para pessoa física, o caso típico) e `nfe-venda-pj.xml` (venda para pessoa jurídica, 10 itens), ambos com dados **fictícios** — e o guia traz uma função de leitura já testada com os dois (seção 7.5). Use-os como base das fixtures; nunca versione XML de notas reais.
 - **DataMatrix e código de rastreamento:** testes campo a campo e do dígito verificador (com os códigos reais da documentação). Use a tabela de testes da seção 9 de `correios-etiquetas-zpl.md`, incluindo o exemplo completo de 164 caracteres da seção 4.
 - **Logotipos:** converter um PNG em `^GFA` e conferir os bytes e o CRC do formato `:Z64:`; reconverter `doc/recursos/logos-png/logo_servico_sedex_224x224.png` deve reproduzir os bytes do template antigo.
 - **Integração real (opcional):** grupo `integracao`, **pulado por padrão**, que só roda se existirem as variáveis `CORREIOS_HOM_USUARIO` (o CNPJ), `CORREIOS_HOM_CODIGO_ACESSO`, `CORREIOS_HOM_CNPJ`, `CORREIOS_HOM_CARTAO` e `CORREIOS_HOM_CONTRATO`. Siga a ordem das pastas da coleção do Postman. Gere **um** token por execução e reutilize-o. Não inclua nos testes de integração os endpoints que só funcionam com objeto postado (`.../postada`) nem os endpoints HTML instáveis. Nunca grave credenciais no repositório.
@@ -697,7 +697,7 @@ Ao terminar cada etapa, rode os testes e a análise estática antes de seguir pa
 - Não replicar na pré-postagem os serviços adicionais exigidos na cotação de preço.
 - Não reutilizar um `idRecibo` de rótulo que falhou com PPN-288.
 - Não mudar a estrutura de 164 caracteres do DataMatrix nem inventar valores para os campos que o sistema antigo deixava fixos.
-- Não copiar as classes do sistema antigo nem embutir no pacote o logo "LOJA" que está nos templates de exemplo.
+- Não copiar as classes do sistema antigo nem embutir no pacote o logo da loja do sistema antigo (já removido dos templates de exemplo).
 - Não desenhar o logo dos Correios: ele vem do arquivo oficial fornecido pelo usuário.
 - Não usar bibliotecas pesadas para ler o XML da NF-e ou gerar o ZPL quando o PHP nativo resolve.
 

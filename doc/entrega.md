@@ -79,7 +79,7 @@ Resultados da última execução de cada comando, em 04/10/2026, com PHP 8.4.15 
   renderizadas pela API do Labelary (HTTP 200) e conferidas visualmente. Uma sobreposição entre CEP e cidade em
   300 dpi foi corrigida. A etiqueta de declaração de conteúdo não existe, então não foi conferida.
 - **Logotipos:** o `ImagemZpl` reproduz exatamente os bytes dos logos de SEDEX, PAC e Carta do sistema antigo.
-- **DataMatrix:** reproduz exatamente a cadeia da etiqueta real `doc/legado/etiqueta-postagem-zpl/etiqueta_exemplo.zpl`.
+- **DataMatrix:** reproduz exatamente a cadeia da etiqueta gerada pelo sistema antigo (`doc/legado/etiqueta-postagem-zpl/etiqueta_exemplo.zpl`). A conferência foi feita com a etiqueta real; em 04/10/2026 os dados dela foram trocados por fictícios, com a cadeia regenerada pelo mesmo algoritmo.
   O teste lê o arquivo de `doc/` na hora e é pulado se a pasta não existir; nenhum dado real foi para as fixtures.
 - **Exemplos:** 01 a 06 e 08 a 11 rodaram contra a homologação. O 07 (assíncrono) rodou, mas a pré-postagem ficou
   pendente durante as tentativas (cerca de 2 minutos). O 10 mostrou a DACE indisponível com a pré-postagem pendente

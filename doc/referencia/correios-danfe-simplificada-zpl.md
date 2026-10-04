@@ -34,7 +34,7 @@
 | `DanfeSimplificado.php` | Classe estática: recebe os dados do pedido, monta o mapa de substituições e devolve o ZPL. |
 | `template_danfe_simplificado.zpl` | Template com os marcadores (palavras soltas, sem delimitador). Começa com BOM (`EF BB BF`). |
 | `exemplo_etiqueta_danfe.zpl` | Etiqueta real gerada pelo sistema antigo. |
-| `nfe-venda-pf.xml` | XML real e autorizado de uma NF-e de **venda** para pessoa física — a mesma nota da etiqueta de exemplo. Ver seção 7.5. |
+| `nfe-venda-pf.xml` | XML de uma NF-e autorizada de **venda** para pessoa física — a mesma nota da etiqueta de exemplo. Os dados foram trocados por **fictícios** em 04/10/2026 (ver seção 7.5). |
 | `nfe-venda-pj.xml` | XML de uma NF-e autorizada de **venda** para pessoa jurídica, com 10 itens, com os **dados trocados por fictícios** (não é do sistema antigo). Ver seção 7.5. |
 
 ## 2. Como o sistema antigo funcionava
@@ -103,7 +103,7 @@ Com módulo 2, a chave cabe na etiqueta de 800 pontos com margem. **Com módulo 
 
 ## 4. Chave de acesso da NF-e
 
-A chave tem 44 dígitos. A da etiqueta real (`35261011222333000181550010000214861123456781`) se decompõe assim:
+A chave tem 44 dígitos. A da etiqueta de exemplo (`35261011222333000181550010000214861123456781`; dados fictícios desde 04/10/2026, com o dígito verificador recalculado) se decompõe assim:
 
 | Posições | Tam. | Campo | Exemplo |
 |---|:-:|---|---|
@@ -114,7 +114,7 @@ A chave tem 44 dígitos. A da etiqueta real (`3526101122233300018155001000021486
 | 23–25 | 3 | Série | `001` |
 | 26–34 | 9 | Número da nota | `000021486` |
 | 35 | 1 | Tipo de emissão | `1` |
-| 36–43 | 8 | Código numérico | `60988178` |
+| 36–43 | 8 | Código numérico | `12345678` |
 | 44 | 1 | Dígito verificador | `1` |
 
 ### Dígito verificador (módulo 11) — conferido com a chave real
@@ -171,7 +171,7 @@ A mesma fonte informa que a chave e o código de barras podem ser impressos em q
 |---|---|---|---|
 | 1 | Marcadores são **palavras soltas** (`NUMERO_NOTA`), sem delimitador | Um valor que contenha o nome de outro marcador é substituído em cascata; não dá para saber se sobrou marcador. | Marcadores `{{nome}}`, como nos outros templates. |
 | 2 | Marcador com valor vazio **não é substituído** | Sem código de rastreamento, a etiqueta imprime um código de barras com o texto `CODIGO_DE_ENVIO`. | Bloco do código de envio como parcial opcional; campos vazios viram texto vazio. |
-| 3 | Série fixa no template (`/ 2`) | Na etiqueta real a chave indica série `001`, mas o texto impresso é "/ 2". | Série vinda da nota (XML ou chave). |
+| 3 | Série fixa no template (`/ 2`) | Na etiqueta de exemplo a chave indica série `001`, mas o texto impresso é "/ 2". | Série vinda da nota (XML ou chave). |
 | 4 | "1 - Saida" fixo | Nota de entrada ou devolução sai com o tipo errado. | Tipo de operação vindo da nota (`0` entrada, `1` saída). |
 | 5 | Faltam dados exigidos (seção 5) | Etiqueta fora do padrão. | Incluir título correto, protocolo, UF e CNPJ/CPF. |
 | 6 | Data de emissão tirada da data de envio do pedido | Pode divergir da data real da nota. | Usar a data de emissão da NF-e. |
@@ -303,7 +303,7 @@ Os limites são estimativas para a largura útil de 740 pontos; ajuste após tes
 
 ### 7.5 Leitura do XML da NF-e — ✔ testado com dois XML
 
-A pasta de exemplos traz dois XML **autorizados** (`nfeProc` versão 4.00), em uma única linha, com namespace padrão e assinatura. O de pessoa física é **real**; o de pessoa jurídica é uma nota real com os **dados trocados por fictícios** (emitente, destinatário, transportadora, responsável técnico, número, chave, protocolo e assinatura — a assinatura deixa de ser válida, mas a chave e o dígito verificador foram recalculados):
+A pasta de exemplos traz dois XML **autorizados** (`nfeProc` versão 4.00), em uma única linha, com namespace padrão e assinatura. Os dois são notas reais com os **dados trocados por fictícios** (o de pessoa jurídica em 04/10/2026, antes da implementação; o de pessoa física também em 04/10/2026, antes de o repositório ser tornado público) (emitente, destinatário, transportadora, responsável técnico, número, chave, protocolo e assinatura — a assinatura deixa de ser válida, mas a chave e o dígito verificador foram recalculados):
 
 | Arquivo | Caso | Destinatário | Itens | Particularidades |
 |---|---|---|:-:|---|
@@ -392,7 +392,7 @@ function lerNfeParaDanfe(string $xml): array
 | Tamanho dos textos | Maior linha de endereço do destinatário: 63 caracteres (limite 68); razão social do emitente: 44 (limite 50) ✔ |
 | Nota sem protocolo, com `cStat` diferente de 100 ou com chave divergente | A função lança erro nos três casos ✔ |
 
-O que os XML reais mostraram e mudaram neste guia:
+O que os XML (reais, na análise original) mostraram e mudaram neste guia:
 
 - **Endereço do emitente:** com o bairro, a linha chegou a 75 caracteres e não caberia. A função monta o endereço **sem o bairro** (`logradouro, número, complemento - cidade/UF - CEP`). Textos em maiúsculas ocupam mais largura: use 60 como limite prático.
 - **Tipo de operação ≠ finalidade:** na análise original, uma nota de devolução (`finNFe = 4`) tinha `tpNF = 1` (o XML dela não está no projeto). O tipo impresso vem de `tpNF`, não de `finNFe` nem da natureza da operação.
@@ -427,7 +427,7 @@ Dados fictícios usados na verificação: emitente "Loja Teste Homologação Com
 - **Conformidade legal:** os requisitos da seção 5 vêm de fonte secundária; a Nota Técnica 2020.004 oficial não foi lida. Posição obrigatória dos campos, tamanhos mínimos e regras para contingência devem ser conferidos nela.
 - **Leitura dos códigos de barras** por leitor físico e **impressão** em impressora térmica.
 - ~~Template de 300 dpi~~ — ✔ renderizado no Labelary em 04/10/2026 (12 dpmm, 4 × 6 pol), com escala 1,5 (`^BY2` → `^BY3`). A chave de acesso em Code 128 coube na largura de 1200 pontos. Continua sem teste a impressão física.
-- **Leitura do XML da NF-e** — testada com a venda para pessoa física (`nfe-venda-pf.xml`, real) e a venda para pessoa jurídica (`nfe-venda-pj.xml`, dados fictícios, em 04/10/2026), ambas em emissão normal. Na análise original também foi testada uma devolução para pessoa jurídica, cujo XML não está no projeto. Não foram testados: nota de entrada (`tpNF = 0`), emissão em contingência e destinatário do exterior.
+- **Leitura do XML da NF-e** — testada com a venda para pessoa física (`nfe-venda-pf.xml`, hoje com dados fictícios) e a venda para pessoa jurídica (`nfe-venda-pj.xml`, dados fictícios, em 04/10/2026), ambas em emissão normal. Na análise original também foi testada uma devolução para pessoa jurídica, cujo XML não está no projeto. Não foram testados: nota de entrada (`tpNF = 0`), emissão em contingência e destinatário do exterior.
 - ~~Renderização do template sem itens e valores~~ — ✔ renderizado no Labelary em 04/10/2026, em 203 e 300 dpi, com o XML de venda para pessoa física **anonimizado** (dados fictícios) e com o código de envio. Todos os blocos ficaram dentro da etiqueta, sem sobreposição.
 - **Aceitação em fiscalização ou pelos Correios** de uma etiqueta gerada por este template.
 

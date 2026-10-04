@@ -43,7 +43,7 @@ describe('DataMatrixCorreios', function (): void {
         }
     });
 
-    it('reproduz a cadeia da etiqueta real do sistema antigo', function (): void {
+    it('reproduz a cadeia da etiqueta gerada pelo sistema antigo', function (): void {
         $arquivo = arquivoDoc('legado/etiqueta-postagem-zpl/etiqueta_exemplo.zpl');
         if (!is_file($arquivo)) {
             $this->markTestSkipped('A pasta doc/legado não está disponível (ela não vai no pacote).');

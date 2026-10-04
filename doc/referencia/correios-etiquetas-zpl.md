@@ -168,7 +168,9 @@ Destino `01001000`, origem `01310100`, objeto `AB043180865BR`, cartão `00123456
 
 Decomposição: `01001000` · `00000` · `01310100` · `00000` · `8` · `51` · `AB043180865BR` · `250000000000` · `0012345678` · `03220` · `00` · `00100` · `APTO 12` + 13 espaços · `00000` · `000000000000` · `-00.000000` · `-00.000000` · `|` · 30 zeros.
 
-### ✔ Validação com uma etiqueta real do sistema antigo
+### ✔ Validação com uma etiqueta gerada pelo sistema antigo
+
+> A conferência abaixo foi feita em 03/10/2026 com uma etiqueta real. Em 04/10/2026, antes de o repositório ser tornado público, os dados dela foram trocados por **fictícios** (destinatário, remetente, contrato, cartão e código do objeto) e o logo da loja foi removido. A cadeia do DataMatrix foi regenerada com o mesmo algoritmo, por isso as conferências continuam valendo.
 
 O arquivo `doc/legado/etiqueta-postagem-zpl/etiqueta_exemplo.zpl` é uma etiqueta **gerada pelo sistema antigo** (SEDEX, serviço `03220`, objeto `AA123456785BR`). A cadeia do DataMatrix nela é:
 
@@ -180,15 +182,15 @@ O arquivo `doc/legado/etiqueta-postagem-zpl/etiqueta_exemplo.zpl` é uma etiquet
 |---|---|
 | Tamanho total | **164 caracteres** ✔ |
 | Ordem e tamanho dos 19 campos | Iguais à tabela acima ✔ |
-| Dígito validador do CEP | CEP `93220680` → soma 30 → validador `0` ✔ (confirma o caso "soma múltipla de 10") |
+| Dígito validador do CEP | CEP `01001000` → soma 2 → validador `8` ✔. Na etiqueta real, o CEP de destino tinha soma 30 e validador `0`, o que confirmou o caso "soma múltipla de 10" (teste com `93220680`) |
 | Campos fixos | `00000` · `51` · `250000000000` · `00` · `00000` · `000000000000` · `-00.000000` (2×) · `\|` · 30 zeros — exatamente os valores do código antigo ✔ |
 | Cartão e serviço | `0012345678` e `03220`, com zeros à esquerda ✔ |
-| Número e complemento | `00432` e `APTO 12` + 5 espaços ✔ |
+| Número e complemento | `00100` e `APTO 12` + 13 espaços ✔ |
 | Classe `DataMatrixCorreios` (seção 8.5) | Com os mesmos dados de entrada, gera **exatamente** essa cadeia ✔ |
 | Dígito verificador do código do objeto | `AA123456785BR` confere com a regra do módulo 11 ✔ |
-| Logotipos | Os dois blocos `^GFA` são idênticos aos de `sedex_template.zpl` ✔ |
+| Logotipos | O bloco `^GFA` do símbolo do SEDEX é idêntico ao de `sedex_template.zpl` ✔ (o logo da loja foi removido dos dois arquivos) |
 
-O que a etiqueta real mostra sobre o uso do sistema antigo:
+O que a etiqueta real mostrou sobre o uso do sistema antigo:
 
 - O **nome do serviço** impresso era a forma curta (`SEDEX`), não o nome do contrato (`SEDEX CONTRATO AG`).
 - O campo de observações recebia o texto `Observações:` mesmo sem conteúdo — na versão nova, deixe a linha vazia quando não houver observação.
@@ -211,12 +213,12 @@ Peça o manual ao usuário para preencher esses campos corretamente. Se ele não
 
 | Imagem | Onde | Posição | Tamanho | Bytes por linha | Total de bytes | Codificação | Arquivo decodificado |
 |---|---|---|---|:-:|:-:|---|---|
-| Logo da loja ("LOJA") — **substituído pelo logo dos Correios no template novo** | os 3 templates | `^FO25,50` | 256 × 250 | 32 | 8000 | hexadecimal compactado | `logo_loja_loja_256x250.png` |
+| Logo da loja — **substituído pelo logo dos Correios no template novo** e **removido do repositório** em 04/10/2026 | os 3 templates (originalmente) | `^FO25,50` | 256 × 250 | 32 | 8000 | hexadecimal compactado | — |
 | Símbolo SEDEX | `sedex_template.zpl` | `^FO512,64` | 224 × 224 | 28 | 6272 | `:Z64:` | `logo_servico_sedex_224x224.png` |
 | Símbolo PAC (círculo) | `pac_template.zpl` | `^FO560,100` | 160 × 147 | 20 | 2940 | hexadecimal compactado | `logo_servico_pac_160x147.png` |
 | Chancela "Carta" | `carta_template.zpl` | `^FO512,64` | 224 × 224 | 28 | 6272 | `:Z64:` | `logo_servico_carta_224x224.png` |
 
-Os PNG estão em `doc/recursos/logos-png/` (1 bit, preto sobre branco), exceto o logo "LOJA", que fica em `doc/legado/etiqueta-postagem-zpl/` por não fazer parte do componente. Servem para conferir o resultado e para gerar versões em outra resolução.
+Os PNG estão em `doc/recursos/logos-png/` (1 bit, preto sobre branco), O logo da loja não faz parte do componente e foi removido do repositório. Servem para conferir o resultado e para gerar versões em outra resolução.
 
 ### 5.2 Formato do comando
 
@@ -310,7 +312,7 @@ Cada parcial está em uma única linha, com `^FO`, `^GFA` e `^FS`.
 
 ### 5.5 Logo dos Correios no lugar do logo da loja
 
-No template novo, a posição `^FO25,50` (área de até **256 × 250 pontos**) é do **logo dos Correios** — parcial `logo_correios.zpl` —, e não mais do logo "LOJA" do sistema antigo.
+No template novo, a posição `^FO25,50` (área de até **256 × 250 pontos**) é do **logo dos Correios** — parcial `logo_correios.zpl` —, e não mais do logo da loja do sistema antigo.
 
 - **Os parciais já estão prontos**, gerados em 03/10/2026 a partir da imagem fornecida pelo usuário (círculo preto com o símbolo e o nome em branco; recortada em `logos-png/logo_correios_original_524x524.png`):
 
@@ -342,7 +344,7 @@ No template novo, a posição `^FO25,50` (área de até **256 × 250 pontos**) �
 | Estrutura de 164 caracteres do DataMatrix e o dígito validador do CEP | **Sim** |
 | Parâmetros dos códigos (`^BXN,5,200`, `^BY3,3,120^BCN,,Y,Y`, `^BY3,2,110^BCN,,N,N`) | **Sim** |
 | Símbolos dos serviços (SEDEX, PAC, Carta) | **Sim** — extrair os blocos `^GFA` dos templates para arquivos parciais |
-| Logo "LOJA" fixo no template | **Não** — nessa posição entra o **logo dos Correios** (seção 5.5) |
+| Logo da loja fixo no template | **Não** — nessa posição entra o **logo dos Correios** (seção 5.5) |
 | Classes PHP (`CreateZplLabel`, `QrCodeLabel`) | **Não** — reescrever conforme a seção 8 |
 
 ## 7. Problemas do código antigo que a nova versão deve corrigir
@@ -352,7 +354,7 @@ No template novo, a posição `^FO25,50` (área de até **256 × 250 pontos**) �
 | 1 | Valores inseridos **sem escape** em campos com `^FH` | Com `^FH`, o caractere `_` inicia um código hexadecimal: `Loja_AB` vira um caractere estranho. `^` e `~` no texto quebram a etiqueta. | Escapar todo valor: `_` → `_5F`, `^` → `_5E`, `~` → `_7E`, `\` → `_5C` (verificado no Labelary). |
 | 2 | Template escolhido por `strtolower(nome do serviço)` | Só funciona se o nome for exatamente `SEDEX`, `PAC` ou `CARTA`. Os nomes da API são outros (`SEDEX CONTRATO AG`, `PAC CONTRATO AG`, `SEDEX REVERSO`...). | Mapear o **código do serviço** para o logo, por configuração. |
 | 3 | Três templates quase iguais | Qualquer ajuste de layout precisa ser repetido três vezes. | Um template base + parciais de logo. |
-| 4 | Logo da loja ("LOJA") embutido no template | O canto superior esquerdo da etiqueta deve trazer o **logo dos Correios**, não o da loja. | Trocar pelo parcial `logo_correios` (seção 5.5). |
+| 4 | Logo da loja embutido no template | O canto superior esquerdo da etiqueta deve trazer o **logo dos Correios**, não o da loja. | Trocar pelo parcial `logo_correios` (seção 5.5). |
 | 5 | `QrCodeLabel` usa um array **estático** alterado a cada chamada | Estado compartilhado entre chamadas; valores de uma etiqueta podem vazar para outra. | Objeto imutável, sem estado estático. |
 | 6 | `sprintf('%05d', $numero)` no número do logradouro | `S/N` ou `123A` viram `00000` ou `00123` sem aviso; números com mais de 5 dígitos estouram o campo e deslocam os campos seguintes. | Extrair só os dígitos, limitar a 5 e completar com zeros; sem dígitos → `00000`. |
 | 7 | `substr()` e `str_pad()` contam **bytes** | Complemento com acento (`Apto 3 – Bl. Ç`) ocupa mais de 20 bytes e desalinha a cadeia. | Remover acentos e caracteres fora de `A–Z`, `0–9` e espaço, converter para maiúsculas, e só então cortar e completar para 20. |
@@ -554,7 +556,7 @@ O exemplo é um esboço: a versão final valida cada argumento no construtor (CE
 | Teste | O que conferir |
 |---|---|
 | DataMatrix — exemplo da seção 4 | Cadeia idêntica, 164 caracteres, cada campo na posição certa |
-| DataMatrix — etiqueta real | Com os dados de `etiqueta_exemplo.zpl`, a cadeia gerada é idêntica à da etiqueta antiga |
+| DataMatrix — etiqueta do sistema antigo | Com os dados de `etiqueta_exemplo.zpl`, a cadeia gerada é idêntica à da etiqueta |
 | Saída | ZPL em UTF-8 sem BOM, terminando em `^XZ` |
 | DataMatrix — validador do CEP | `01001000` → `8`; CEP cuja soma é múltiplo de 10 → `0` |
 | DataMatrix — número do logradouro | `S/N` → `00000`; `123A` → `00123`; `1234567` → `12345` |
