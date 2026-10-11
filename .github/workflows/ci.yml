@@ -31,3 +31,31 @@ jobs:
 
       - name: Testes e cobertura (Pest)
         run: vendor/bin/pest --coverage --min=90
+
+  laravel:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - laravel: '11'
+            testbench: '9'
+          - laravel: '12'
+            testbench: '10'
+          - laravel: '13'
+            testbench: '11'
+    name: Laravel ${{ matrix.laravel }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, gd, json, libxml, mbstring, zlib
+          coverage: none
+
+      - name: Instalar dependências
+        run: composer update --no-interaction --no-progress --prefer-dist --with "illuminate/support:^${{ matrix.laravel }}.0" --with "orchestra/testbench:^${{ matrix.testbench }}.0"
+
+      - name: Testes (Pest)
+        run: vendor/bin/pest

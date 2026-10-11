@@ -9,11 +9,16 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use MarceloFecchio\Correios\Configuracao;
 use MarceloFecchio\Correios\Correios;
+use MarceloFecchio\Correios\FabricaCorreios;
 use Psr\Log\LoggerInterface;
 
 /**
- * Integração opcional com o Laravel (auto-discovery). Registra `Configuracao` e `Correios` como singletons,
- * a partir de `config/correios.php`.
+ * Integração opcional com o Laravel (auto-discovery).
+ *
+ * - `Configuracao` e `Correios`: singletons a partir de `config/correios.php` (`.env`). São preguiçosos: sem
+ *   configuração, nada falha até alguém pedir um deles.
+ * - `FabricaCorreios`: singleton com o logger da aplicação, para criar um `Correios` por configuração quando as
+ *   credenciais vêm do banco ou variam por ambiente/contrato.
  */
 final class CorreiosServiceProvider extends ServiceProvider
 {
@@ -21,20 +26,22 @@ final class CorreiosServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(self::arquivoConfiguracao(), 'correios');
 
+        $this->app->singleton(FabricaCorreios::class, static function (Application $app): FabricaCorreios {
+            $logger = $app->bound(LoggerInterface::class) ? $app->make(LoggerInterface::class) : null;
+
+            return new FabricaCorreios(logger: $logger instanceof LoggerInterface ? $logger : null);
+        });
+
         $this->app->singleton(Configuracao::class, static function (Application $app): Configuracao {
             $config = $app->make(Repository::class)->get('correios', []);
 
             return Configuracao::deArray(is_array($config) ? $config : []);
         });
 
-        $this->app->singleton(Correios::class, static function (Application $app): Correios {
-            $logger = $app->bound(LoggerInterface::class) ? $app->make(LoggerInterface::class) : null;
-
-            return new Correios(
-                configuracao: $app->make(Configuracao::class),
-                logger: $logger instanceof LoggerInterface ? $logger : null,
-            );
-        });
+        $this->app->singleton(
+            Correios::class,
+            static fn(Application $app): Correios => $app->make(FabricaCorreios::class)->criar($app->make(Configuracao::class)),
+        );
 
         $this->app->alias(Correios::class, 'correios');
     }

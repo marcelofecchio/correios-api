@@ -13,6 +13,10 @@ declare(strict_types=1);
  * Seguem a ordem das pastas da coleção do Postman e geram UM token por execução.
  * Não incluem `.../postada` (exige objeto postado) nem os endpoints HTML instáveis.
  *
+ * Os testes 04b e 11 gravam em `build/homologacao/` o que só a API real responde: os adicionais de cada serviço com
+ * a categoria identificada (códigos de mão própria e artigos perigosos) e o rótulo PDF em layout linear com
+ * observação, para conferência visual.
+ *
  *   vendor/bin/pest --group=integracao
  */
 
@@ -27,6 +31,7 @@ use MarceloFecchio\Correios\Dto\SolicitacaoRotulo;
 use MarceloFecchio\Correios\Dto\Volume;
 use MarceloFecchio\Correios\Enums\Ambiente;
 use MarceloFecchio\Correios\Enums\FormatoObjeto;
+use MarceloFecchio\Correios\Enums\LayoutImpressao;
 use MarceloFecchio\Correios\Enums\StatusPrePostagem;
 use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
 use MarceloFecchio\Correios\Token;
@@ -118,6 +123,20 @@ it('04 calcula preço e consulta adicionais', function (): void {
         ->and($adicionais)->not->toBeEmpty();
 });
 
+it('04b identifica a categoria dos adicionais de SEDEX e PAC', function (): void {
+    $correios = correiosHomologacao();
+    $relatorio = [];
+    foreach (['sedex', 'pac'] as $servico) {
+        foreach ($correios?->preco()->servicosAdicionais(tokenHomologacao(), $servico) ?? [] as $adicional) {
+            $relatorio[$servico][] = ['codigo' => $adicional->codigo, 'sigla' => $adicional->sigla, 'nome' => $adicional->nome, 'categoria' => $adicional->categoria()?->name];
+        }
+    }
+    gravarRelatorioHomologacao('adicionais.json', (string) json_encode($relatorio, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    expect($relatorio)->toHaveKeys(['sedex', 'pac'])
+        ->and(array_column($relatorio['sedex'], 'categoria'))->toContain('ValorDeclarado');
+});
+
 it('05 calcula o prazo', function (): void {
     $prazo = correiosHomologacao()?->prazo()->calcular(tokenHomologacao(), new ConsultaPrazo('pac', '01310100', '01001000'));
 
@@ -173,3 +192,40 @@ it('10 rastreia um objeto de exemplo da documentação', function (): void {
 
     expect($rastreamento?->codigoObjeto)->toBe('DG049186226BR');
 });
+
+it('11 tenta obter o rótulo linear 100x150 com observação e cancela', function (): void {
+    $correios = correiosHomologacao();
+    $token = tokenHomologacao();
+    $nova = new NovaPrePostagem(
+        destinatario: new MarceloFecchio\Correios\Dto\Pessoa(
+            'Maria Aparecida Souza',
+            new MarceloFecchio\Correios\Dto\Endereco('01001000', 'Praça da Sé', '100', 'Sé', 'São Paulo', 'SP', 'Apto 12'),
+            '52998224725',
+            'maria.souza.teste@exemplo.com.br',
+            celular: '11912345678',
+        ),
+        servico: 'sedex',
+        volume: new Volume(800, FormatoObjeto::CaixaPacote, 30, 20, 10),
+        itens: [new Item('Teclado para notebook', 1, 25000)],
+        observacao: 'OBSERVACAO DE TESTE: CONFERIR SE SAI NO ROTULO',
+    );
+
+    $criada = $correios?->prePostagem()->criar($token, $nova);
+    $arquivo = $correios?->rotulo()->tentarObter($token, SolicitacaoRotulo::porIds([$criada?->id ?? ''], layoutImpressao: LayoutImpressao::Linear100x150));
+    if ($arquivo !== null) {
+        gravarRelatorioHomologacao('rotulo-linear-100x150.pdf', $arquivo->conteudoBinario());
+    }
+    $correios?->prePostagem()->cancelar($token, $criada?->id ?? '');
+
+    // null = pré-postagem ainda PENDENTE (PPN-288): comportamento esperado da API, sem PDF para conferir
+    expect($arquivo === null || str_starts_with($arquivo->conteudoBinario(), '%PDF'))->toBeTrue();
+});
+
+function gravarRelatorioHomologacao(string $nome, string $conteudo): void
+{
+    $diretorio = dirname(__DIR__, 2) . '/build/homologacao';
+    if (!is_dir($diretorio)) {
+        mkdir($diretorio, 0o777, true);
+    }
+    file_put_contents($diretorio . '/' . $nome, $conteudo);
+}

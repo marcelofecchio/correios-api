@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarceloFecchio\Correios\Servicos;
 
 use MarceloFecchio\Correios\Dto\SolicitacaoRotulo;
+use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
 use MarceloFecchio\Correios\Respostas\ArquivoRotulo;
 use MarceloFecchio\Correios\Respostas\ReciboRotulo;
@@ -16,6 +17,9 @@ use MarceloFecchio\Correios\Token;
  * Roteiro: confirme `statusAtual = 2` → solicitar → baixar. Se o download lançar `ErroPrePostagemPendente`
  * (PPN-288), o recibo ficou inválido: aguarde o status 2 e **solicite de novo**. O componente não espera nem
  * repete chamadas. O rótulo só pode ser emitido com as mesmas credenciais que criaram a pré-postagem.
+ *
+ * Pré-postagem síncrona: não há endpoint para consultar o status por id. Use `tentarObter()` a cada volta do job da
+ * aplicação: o próprio download diz se a pré-postagem ainda está pendente.
  */
 final class Rotulo extends Servico
 {
@@ -56,5 +60,28 @@ final class Rotulo extends Servico
         $base64 = $dados->texto('dados') ?? throw $this->respostaSemCampo($resposta, 'dados', 'baixar rótulo');
 
         return new ArquivoRotulo($dados->texto('nome') ?? sprintf('idRecibo_%s.pdf', $id), $base64, $dados->bruto());
+    }
+
+    /**
+     * Solicita e baixa o rótulo numa tentativa. Devolve null se a pré-postagem ainda estiver PENDENTE (PPN-288).
+     *
+     * Cada tentativa usa um recibo novo, como a API exige; o código do objeto não muda entre as solicitações. Não há
+     * espera nem repetição: chame de novo, depois de um intervalo, enquanto o retorno for null.
+     *
+     * ```php
+     * // job da aplicação, reagendado com intervalo crescente (5, 10, 30, 60, 120 s...)
+     * $arquivo = $correios->rotulo()->tentarObter($token, SolicitacaoRotulo::porIds([$id]));
+     * if ($arquivo === null) {
+     *     $this->release($proximoIntervalo);   // ainda pendente
+     * }
+     * ```
+     */
+    public function tentarObter(Token|string $token, SolicitacaoRotulo $solicitacao): ?ArquivoRotulo
+    {
+        try {
+            return $this->baixar($token, $this->solicitar($token, $solicitacao));
+        } catch (ErroPrePostagemPendente) {
+            return null;
+        }
     }
 }

@@ -21,6 +21,12 @@ use MarceloFecchio\Correios\Utilitarios\Texto;
  */
 final readonly class NovaPrePostagem
 {
+    /** Máximo de caracteres de `observacao` (schema da API Pré-postagem). */
+    public const int MAXIMO_OBSERVACAO = 50;
+
+    /** Máximo de caracteres de `pedidoExternoOrigem` (schema da API Pré-postagem). */
+    public const int MAXIMO_PEDIDO_EXTERNO = 25;
+
     public ?ChaveDocumentoFiscal $chaveNFe;
     public ?string $numeroNotaFiscal;
     public ?string $observacao;
@@ -38,6 +44,12 @@ final readonly class NovaPrePostagem
      * @param ?Pessoa                $remetente  null = remetente padrão da configuração
      * @param array<Item>             $itens
      * @param array<ServicoAdicional> $adicionais
+     * @param ?string                $observacao até 50 caracteres (`MAXIMO_OBSERVACAO`). Se sai impressa no rótulo PDF
+     *                                           dos Correios ainda não foi confirmado.
+     * @param bool                   $cienteObjetoNaoProibido declaração obrigatória da API: `true` envia `"1"` (objeto
+     *                                           permitido no fluxo postal); `false` envia `"0"` (objeto proibido). A API
+     *                                           não tem campo para bateria, inflamável ou explosivo; artigos perigosos
+     *                                           são um serviço adicional (`CategoriaServicoAdicional::ArtigosPerigosos`)
      */
     public function __construct(
         public Pessoa $destinatario,
@@ -84,8 +96,8 @@ final readonly class NovaPrePostagem
             throw ErroValidacao::campo('itens', 'a DCe emitida pelos Correios (emiteDCe) exige os itens da declaração de conteúdo.');
         }
 
-        $this->observacao = self::textoLimitado('observacao', $observacao, 50);
-        $this->pedidoExterno = self::textoLimitado('pedidoExterno', $pedidoExterno, 25);
+        $this->observacao = self::textoLimitado('observacao', $observacao, self::MAXIMO_OBSERVACAO);
+        $this->pedidoExterno = self::textoLimitado('pedidoExterno', $pedidoExterno, self::MAXIMO_PEDIDO_EXTERNO);
 
         if ($logisticaReversa) {
             if ($remetente === null) {

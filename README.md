@@ -27,7 +27,7 @@ Componente PHP para a **API REST dos Correios (CWS – Correios Web Services)** 
 - Um cliente HTTP **PSR-18** e fábricas **PSR-17** (recomendado: Guzzle 7 ou superior). Sem nenhum instalado, o componente
   avisa com `ErroConfiguracao`.
 - Opcional: `ext-gd` e `ext-zlib` só para converter imagens em `^GFA` (`Etiquetas\ImagemZpl`).
-- Opcional: Laravel 11 ou 12 para o ServiceProvider e a Facade.
+- Opcional: Laravel 11, 12 ou 13 para o ServiceProvider e a Facade.
 
 ## Instalação
 
@@ -142,6 +142,24 @@ use MarceloFecchio\Correios\Laravel\Facades\Correios;
 $rastreamento = Correios::rastro()->rastrear($token, 'AB043180865BR');
 ```
 
+**Credenciais no banco ou mais de um ambiente:** o singleton `Correios` usa o `.env`. Quando as credenciais vêm do
+banco (uma por ambiente, ou cada envio no ambiente em que foi criado), use a `FabricaCorreios`, registrada com o
+logger da aplicação. O singleton do `.env` é preguiçoso: sem `.env`, nada falha se ele não for usado.
+
+```php
+use MarceloFecchio\Correios\FabricaCorreios;
+
+$correios = app(FabricaCorreios::class)->deArray([
+    'ambiente' => $credencial->ambiente,                // "homologacao" ou "producao"
+    'usuario' => $credencial->usuario,
+    'codigo_acesso' => $credencial->codigo_acesso,
+    'cnpj' => $credencial->cnpj,
+    'cartao_postagem' => $credencial->cartao_postagem,
+]);
+```
+
+Fora do Laravel, `new FabricaCorreios(clienteHttp: ..., logger: ...)` faz o mesmo.
+
 ## Boas práticas com o token
 
 O componente **não guarda o token**: essa responsabilidade é da aplicação.
@@ -209,15 +227,15 @@ $nova = new NovaPrePostagem(
 );
 $criada = $correios->prePostagem()->criar($token, $nova);
 
-if ($criada->podeImprimirRotulo()) {                                             // status 2 (PREPOSTADO)
-    $recibo = $correios->rotulo()->solicitar($token, SolicitacaoRotulo::porIds([$criada->id]));
-    $correios->rotulo()->baixar($token, $recibo)->salvar('/tmp/rotulo.pdf');
-}
+// solicita e baixa; null = ainda PENDENTE (status 7): tente de novo mais tarde (ver "Pré-postagem assíncrona e rótulo")
+$pdf = $correios->rotulo()->tentarObter($token, SolicitacaoRotulo::porIds([$criada->id]));
+$pdf?->salvar('/tmp/rotulo.pdf');
 // ou a etiqueta em ZPL gerada pelo componente:
 $zpl = $correios->etiquetas()->postagemDePrePostagem($nova, $criada);
 
 // depois da postagem física na agência:
 $rastreamento = $correios->rastro()->rastrear($token, $criada->codigoObjeto);
+$situacao = $rastreamento->situacao();                                           // SituacaoRastreamento::Entregue...
 $dados = $correios->prePostagem()->dadosPostagem($token, $criada->codigoObjeto);  // valor e peso tarifados
 ```
 
@@ -251,7 +269,7 @@ objetos tipados. Cada resposta expõe `respostaBruta()` com o JSON original. Val
 | `preco()` | `calcular($token, ConsultaPreco)`, `calcularLote($token, [ConsultaPreco, ...])` (até 5), `servicosAdicionais($token, 'sedex')` |
 | `prazo()` | `calcular($token, ConsultaPrazo)`, `calcularLote($token, [...])`, `dataPrevista($token, ConsultaDataPrevista)` |
 | `prePostagem()` | `criar`, `criarAssincrona` (devolve o recibo), `consultarAssincrona`, `cancelar`, `cancelarPorCodigoObjeto`, `cancelarLote`, `consultarCancelamentoLote`, `dadosPostagem` |
-| `rotulo()` | `solicitar($token, SolicitacaoRotulo): ReciboRotulo`, `baixar($token, $recibo): ArquivoRotulo` |
+| `rotulo()` | `solicitar($token, SolicitacaoRotulo): ReciboRotulo`, `baixar($token, $recibo): ArquivoRotulo`, `tentarObter($token, SolicitacaoRotulo): ?ArquivoRotulo` |
 | `dce()` | `imprimirDace($token, SolicitacaoDace): Dace`, `atualizarDocumentoFiscal($token, $codigoObjeto, $chave, $numeroNota)` |
 | `rastro()` | `rastrear($token, $codigo)` (todos os eventos), `rastrearVarios($token, [...])` (até 50, último evento) |
 | `etiquetas()` | ZPL sem chamada à API — ver [Etiquetas](#etiquetas) |
@@ -270,6 +288,22 @@ foreach ($lote->itens as $item) {
 
 **Paginação (Meu Contrato):** `listarTodosServicos()` percorre as páginas (a primeira é 0) e aceita `itens` como
 lista ou objeto único.
+
+**Observação da pré-postagem:** no máximo **50 caracteres** (`NovaPrePostagem::MAXIMO_OBSERVACAO`, limite do
+schema). A etiqueta ZPL do componente aceita observações mais longas (até 110). Ainda não se confirmou se a
+observação sai impressa no rótulo PDF dos Correios; o teste de integração 11 grava um rótulo para conferência.
+
+**Situação do rastreamento:** `$rastreamento->situacao()` (evento mais recente) e `$evento->situacao()` devolvem
+`SituacaoRastreamento` (`Postado`, `EmTransito`, `SaiuParaEntrega`, `Entregue`, `AguardandoRetirada`, `Devolvido`,
+`Problema`, `Cancelado` ou `Desconhecida`). A tabela oficial de eventos **não faz parte da especificação**: a tabela
+padrão traz só os eventos do exemplo do manual (`PO-01`, `RO-01`, `OEC-03`, `BDE-01`), porque o significado do
+código muda com o tipo. Complete-a com os eventos que a aplicação já viu; as entradas dela têm prioridade:
+
+```php
+$mapa = ['LDI-01' => SituacaoRastreamento::AguardandoRetirada, 'BDE-20' => SituacaoRastreamento::Problema];
+$situacao = $rastreamento->situacao($mapa);           // código desconhecido: SituacaoRastreamento::Desconhecida
+if ($situacao->finalizada()) { /* entregue, devolvido ou cancelado: pare de consultar */ }
+```
 
 **DCe e DACE:** sem nota fiscal, crie a pré-postagem com os itens e `emiteDCe: true` e imprima a DACE:
 `TipoDace::Completa`/`Resumida` devolvem PDF (`conteudoBinario()`); `TipoDace::Termica` devolve texto para a
@@ -291,6 +325,21 @@ impressora (`texto()`). Com NF-e emitida depois, use `atualizarDocumentoFiscal()
   do **2**. Em homologação (04/10/2026) isso aconteceu também na criação **síncrona**.
 - O rótulo pedido com status 7 é aceito, mas o download falha com **PPN-288** (`ErroPrePostagemPendente`) e
   **aquele recibo nunca passa a funcionar**: aguarde o status 2 e **solicite o rótulo de novo**.
+- **Pré-postagem síncrona:** não há endpoint para consultar o status por id. O próprio download diz se ela ainda
+  está pendente: chame `rotulo()->tentarObter()` a cada volta de um job da aplicação. Ele solicita e baixa numa
+  tentativa e devolve `null` em PPN-288; cada tentativa usa um recibo novo, e o código do objeto não muda. Para ter
+  o `statusAtual` antes de pedir o rótulo, use a via assíncrona (`consultarAssincrona()`).
+
+```php
+// job da aplicação (ex.: Laravel), reagendado com intervalo crescente
+$arquivo = $correios->rotulo()->tentarObter($token, SolicitacaoRotulo::porIds([$idPrePostagem]));
+if ($arquivo === null) {
+    $this->release([5, 10, 30, 60, 120][$this->attempts() - 1] ?? 120);   // ainda PENDENTE
+    return;
+}
+$arquivo->salvar($caminho);
+```
+
 - O componente **não faz espera nem repetição**. A rotina abaixo é da aplicação (intervalo crescente e limite):
 
 ```php
@@ -329,6 +378,26 @@ foreach ([5, 10, 30, 60, 120] as $segundos) {           // na aplicação real: 
 - **AR:** emitir o aviso de recebimento exige o adicional **001** na pré-postagem (`ServicoAdicional::avisoRecebimento()`).
 - **Valor declarado:** o código muda por serviço (`019` no SEDEX, `064` no PAC nos testes) — informe-o:
   `ServicoAdicional::valorDeclarado('019', 25000)`.
+- **Categoria do adicional:** para não fixar códigos, localize o adicional de cada serviço pela categoria
+  (`CategoriaServicoAdicional`: `AvisoRecebimento`, `MaoPropria`, `ValorDeclarado`, `ArtigosPerigosos`), que vem da
+  sigla e do nome devolvidos pela API:
+
+```php
+$adicionais = $correios->preco()->servicosAdicionais($token, 'pac');
+$vd = CategoriaServicoAdicional::ValorDeclarado->localizar($adicionais);        // 064 no PAC dos testes
+$mp = CategoriaServicoAdicional::MaoPropria->localizar($adicionais);            // null se o serviço não aceitar
+
+$lista = array_filter([$vd ? ServicoAdicional::de($vd, 25000) : null, $mp ? ServicoAdicional::de($mp) : null]);
+```
+
+- **Mão própria:** o código não está na documentação. Use a categoria acima ou `ServicoAdicional::maoPropria($codigo)`
+  com o código que a sua aplicação já descobriu.
+- **Bateria, inflamável, explosivo:** a API Pré-postagem não tem campo para isso. O único campo é a declaração
+  obrigatória `cienteObjetoNaoProibido` (`NovaPrePostagem`, padrão `true` = `"1"`, objeto permitido; `false` envia
+  `"0"`, objeto proibido no fluxo postal). A API Rastro cita um serviço adicional de transporte de artigos perigosos
+  (`CategoriaServicoAdicional::ArtigosPerigosos`, reconhecido pelo nome, se o contrato o tiver), e a resposta da
+  pré-postagem traz `ehObjetoDgr` em `PrePostagemCriada::$objetoPerigoso`. As regras de aceitação de artigos
+  restritos (ex.: baterias de lítio) não estão na documentação: confirme com os Correios.
 
 ## Etiquetas
 
@@ -494,7 +563,8 @@ Pontos não testados, instáveis ou observados de forma diferente da especifica�
   ficam como texto.
 - **DACE** não foi obtida em homologação (PPN-376 com a pré-postagem pendente). O formato do tipo `T` (texto puro ou
   Base64) não foi confirmado; `Dace::texto()` aceita os dois.
-- **Layouts de rótulo** diferentes de `PADRAO` e `tipoRotulo = R` não foram testados.
+- **Layouts de rótulo** diferentes de `PADRAO` e `tipoRotulo = R` não foram testados. O teste de integração 11 pede
+  o `Linear100x150` e grava o PDF em `build/homologacao/` quando a pré-postagem não fica pendente.
 - **Endpoints HTML** de declaração de conteúdo e AR falham no servidor de homologação e não fazem parte do componente.
 - **Fora do escopo desta versão:** Webhook, autenticação por contrato ou só por usuário, agências, faturas, faixas de
   etiquetas, Pedido de Informação, serviços internacionais, lote de objetos simples, imagens de entrega e AR Digital.
@@ -504,7 +574,12 @@ Pontos não testados, instáveis ou observados de forma diferente da especifica�
 - **DANFE simplificado:** os requisitos da Nota Técnica 2020.004 vêm de fonte secundária (posição da chave no canto
   superior direito não aplicada); contingência EPEC não é suportada.
 - **Etiqueta de declaração de conteúdo em ZPL:** não implementada (falta o texto legal e o layout aprovados).
-- **Limites de peso e medidas por serviço** não são validados localmente: a API recusa.
+- **Limites de peso e medidas por serviço** não são validados localmente: a documentação das APIs não traz a tabela
+  e a API recusa o que estiver fora do limite (a mensagem chega em `ErroApi`).
+- **Situação do rastreamento:** a tabela padrão tem só os quatro eventos do manual; os demais ficam como
+  `Desconhecida` até a aplicação mapeá-los.
+- **Código de mão própria e de artigos perigosos:** não documentados; a categoria é identificada pela sigla e pelo
+  nome que a API Preço devolve. O teste de integração 04b grava o que a homologação devolveu.
 - **Certificados no Windows:** se o PHP não tiver um pacote de autoridades certificadoras (`curl.cainfo` vazio), as
   chamadas falham com "self-signed certificate in certificate chain". Configure `curl.cainfo` no `php.ini`.
 

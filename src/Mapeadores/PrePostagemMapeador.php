@@ -96,6 +96,11 @@ final class PrePostagemMapeador
             codigoServico: $dados->texto('codigoServico'),
             descricaoServico: $dados->texto('servico'),
             motivoCancelamento: $dados->texto('motivoCancelamento'),
+            objetoPerigoso: match (strtoupper((string) $dados->texto('ehObjetoDgr'))) {
+                'S' => true,
+                'N' => false,
+                default => null,
+            },
             bruto: $dados->bruto(),
         );
     }

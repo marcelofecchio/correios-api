@@ -11,7 +11,11 @@ use MarceloFecchio\Correios\Utilitarios\CodigoRastreamento;
 /** Pré-postagem criada (resposta da criação síncrona ou item da consulta assíncrona). */
 final readonly class PrePostagemCriada extends Resposta
 {
-    /** @param array<mixed> $bruto */
+    /**
+     * @param ?bool        $objetoPerigoso campo `ehObjetoDgr`: os Correios identificaram o objeto como perigoso
+     *                                     (Dangerous Goods Regulations); null se a resposta não trouxer o campo
+     * @param array<mixed> $bruto
+     */
     public function __construct(
         public string $id,
         public ?CodigoRastreamento $codigoObjeto,
@@ -20,6 +24,7 @@ final readonly class PrePostagemCriada extends Resposta
         public ?string $codigoServico = null,
         public ?string $descricaoServico = null,
         public ?string $motivoCancelamento = null,
+        public ?bool $objetoPerigoso = null,
         array $bruto = [],
     ) {
         parent::__construct($bruto);

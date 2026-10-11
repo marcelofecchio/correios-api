@@ -325,6 +325,28 @@ describe('Rótulo oficial', function (): void {
         'HTTP 200, observado em homologação em 04/10/2026' => 200,
     ]);
 
+    it('tentarObter solicita e baixa numa tentativa e devolve null em PPN-288', function (): void {
+        $cliente = clienteMock(
+            respostaFixture(200, 'rotulo_recibo.json'),
+            respostaFixture(200, 'erro_ppn288.json'),
+            respostaFixture(200, 'rotulo_recibo.json'),
+            respostaFixture(200, 'rotulo_download.json'),
+        );
+        $rotulo = correiosTeste($cliente)->rotulo();
+        $solicitacao = SolicitacaoRotulo::porIds(['PR1']);
+
+        expect($rotulo->tentarObter(tokenTeste(), $solicitacao))->toBeNull()
+            ->and($cliente->getRequests())->toHaveCount(2)
+            ->and($rotulo->tentarObter(tokenTeste(), $solicitacao)?->conteudoBinario())->toStartWith('%PDF')
+            ->and(array_map(fn($r) => $r->getMethod(), $cliente->getRequests()))->toBe(['POST', 'GET', 'POST', 'GET']);
+    });
+
+    it('tentarObter não esconde outros erros', function (): void {
+        $cliente = clienteMock(respostaFixture(200, 'rotulo_recibo.json'), respostaJson(400, ['msgs' => ['PPN-999: outro erro']]));
+
+        correiosTeste($cliente)->rotulo()->tentarObter(tokenTeste(), SolicitacaoRotulo::porIds(['PR1']));
+    })->throws(ErroApi::class, 'outro erro');
+
     it('trata mensagem de erro com HTTP 200 também na solicitação do rótulo e na DACE', function (): void {
         $erro = ['msgs' => ['Pré-postagem não encontrada.']];
         $cliente = clienteMock(respostaJson(200, $erro), respostaJson(200, $erro));

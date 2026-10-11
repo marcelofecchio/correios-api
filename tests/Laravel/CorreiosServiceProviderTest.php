@@ -47,3 +47,30 @@ it('falha com mensagem clara se a configuração estiver incompleta', function (
 
     app(Correios::class);
 })->throws(MarceloFecchio\Correios\Excecoes\ErroConfiguracao::class, 'usuario');
+
+it('registra a FabricaCorreios para credenciais que não vêm do .env', function (): void {
+    config()->set('correios', []);
+    app()->forgetInstance(Configuracao::class);
+    app()->forgetInstance(Correios::class);
+
+    $fabrica = app(MarceloFecchio\Correios\FabricaCorreios::class);
+    $producao = $fabrica->deArray([
+        'ambiente' => 'producao',
+        'usuario' => 'login-meu-correios',
+        'codigo_acesso' => 'codigo-de-producao',
+        'cnpj' => '11222333000181',
+        'cartao_postagem' => '0076543210',
+    ]);
+    $homologacao = $fabrica->deArray([
+        'ambiente' => 'homologacao',
+        'usuario' => '11222333000181',
+        'codigo_acesso' => 'codigo-de-homologacao',
+        'cnpj' => '11222333000181',
+        'cartao_postagem' => '0012345678',
+    ]);
+
+    expect($fabrica)->toBe(app(MarceloFecchio\Correios\FabricaCorreios::class))
+        ->and($producao->configuracao->ambiente)->toBe(Ambiente::Producao)
+        ->and($homologacao->configuracao->ambiente)->toBe(Ambiente::Homologacao)
+        ->and($producao)->not->toBe($homologacao);
+});

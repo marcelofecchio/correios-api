@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace MarceloFecchio\Correios\Respostas;
 
 use DateTimeImmutable;
+use MarceloFecchio\Correios\Enums\CategoriaServicoAdicional;
 
 /**
  * Serviço adicional aceito por um serviço (`GET /preco/v1/servicos-adicionais/{coProduto}`).
  *
- * `sgIndicador`: `O` obrigatório, `P` opcional. A obrigatoriedade pode mudar com a vigência.
+ * `sgIndicador`: `O` obrigatório, `P` opcional. A obrigatoriedade pode mudar com a vigência. `categoria()` diz se o
+ * adicional é AR, mão própria, valor declarado ou artigos perigosos.
  */
 final readonly class ServicoAdicionalDisponivel extends Resposta
 {
@@ -49,5 +51,11 @@ final readonly class ServicoAdicionalDisponivel extends Resposta
     public function opcional(): bool
     {
         return strtoupper((string) $this->siglaIndicador) === 'P';
+    }
+
+    /** AR, mão própria, valor declarado, artigos perigosos ou null (pela sigla e pelo nome). */
+    public function categoria(): ?CategoriaServicoAdicional
+    {
+        return CategoriaServicoAdicional::de($this);
     }
 }

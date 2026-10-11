@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarceloFecchio\Correios\Respostas;
 
 use DateTimeImmutable;
+use MarceloFecchio\Correios\Enums\SituacaoRastreamento;
 
 /**
  * Rastreamento de um objeto (API Rastro). Objeto não encontrado vem com `mensagem` e sem eventos.
@@ -42,5 +43,15 @@ final readonly class Rastreamento extends Resposta
         }
 
         return $ultimo;
+    }
+
+    /**
+     * Situação do objeto pelo evento mais recente (`Desconhecida` se não houver eventos).
+     *
+     * @param array<string, SituacaoRastreamento> $mapa eventos da aplicação, com prioridade sobre a tabela padrão
+     */
+    public function situacao(array $mapa = []): SituacaoRastreamento
+    {
+        return $this->ultimoEvento()?->situacao($mapa) ?? SituacaoRastreamento::Desconhecida;
     }
 }

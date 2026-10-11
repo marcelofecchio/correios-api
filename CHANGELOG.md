@@ -5,6 +5,30 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+Respostas às lacunas levantadas na construção do primeiro app que usa o componente (11/10/2026).
+
+### Adicionado
+
+- `rotulo()->tentarObter()`: solicita e baixa o rótulo numa tentativa e devolve `null` em PPN-288 (pré-postagem
+  pendente). Substitui a consulta de status que não existe para a pré-postagem síncrona. Sem espera nem repetição.
+- `FabricaCorreios`: cria um `Correios` por configuração com o mesmo cliente HTTP e logger, para credenciais vindas
+  do banco ou de mais de um ambiente. No Laravel é registrada como singleton com o logger da aplicação.
+- `CategoriaServicoAdicional` (AR, mão própria, valor declarado, artigos perigosos), identificada pela sigla e pelo
+  nome que a API Preço devolve; `ServicoAdicionalDisponivel::categoria()`, `CategoriaServicoAdicional::localizar()`,
+  `ServicoAdicional::de()` e `ServicoAdicional::maoPropria()`.
+- `SituacaoRastreamento` e `situacao()` em `Rastreamento` e `EventoRastreamento`, com a tabela padrão restrita aos
+  eventos do manual (`PO-01`, `RO-01`, `OEC-03`, `BDE-01`) e um mapa da aplicação com prioridade.
+- `PrePostagemCriada::$objetoPerigoso` (campo `ehObjetoDgr` da resposta).
+- `NovaPrePostagem::MAXIMO_OBSERVACAO` (50) e `MAXIMO_PEDIDO_EXTERNO` (25).
+- Testes de integração 04b (categorias dos adicionais de SEDEX e PAC) e 11 (rótulo `Linear100x150` com observação),
+  que gravam o resultado em `build/homologacao/`.
+
+### Alterado
+
+- Compatível com Laravel 13: `illuminate/support ^13.0` e `orchestra/testbench ^11.0` no `require-dev` e matriz
+  Laravel 11, 12 e 13 no CI. A suíte passou com Laravel 13.35 e Testbench 11.3.
+- O ServiceProvider cria o singleton `Correios` pela `FabricaCorreios`.
+
 ## [0.1.0] - 2026-10-04
 
 Primeira versão.
