@@ -1,7 +1,7 @@
 # Respostas às lacunas do levantamento do MARCELO ENVIOS
 
-Resposta, item a item, ao `correios-api-gaps.md` (Fase 0 do MARCELO ENVIOS, 11/10/2026). As mudanças estão na seção
-"Não lançado" do `CHANGELOG.md` e entram na próxima versão do pacote.
+Resposta, item a item, ao `correios-api-gaps.md` (Fase 0 do MARCELO ENVIOS, 11/10/2026). As mudanças saíram na versão
+**0.2.0** do pacote (ver `CHANGELOG.md`).
 
 Situação: **resolvido** (o pacote passou a cobrir) · **parcial** (o pacote ajuda, mas falta dado dos Correios) ·
 **fora do pacote** (depende de teste real ou de documentação que não existe).

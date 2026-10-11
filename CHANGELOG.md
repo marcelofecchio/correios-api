@@ -5,6 +5,8 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.2.0] - 2026-10-11
+
 Respostas às lacunas levantadas na construção do primeiro app que usa o componente (11/10/2026).
 
 ### Adicionado
@@ -62,5 +64,6 @@ Primeira versão.
 - **Template de postagem:** o campo cidade/UF do destinatário foi movido de x=200 para x=212 para não encostar no CEP
   em 300 dpi (conferido no Labelary).
 
-[Não lançado]: https://github.com/marcelofecchio/correios-api/compare/v0.1.0...HEAD
+[Não lançado]: https://github.com/marcelofecchio/correios-api/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/marcelofecchio/correios-api/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/marcelofecchio/correios-api/releases/tag/v0.1.0
