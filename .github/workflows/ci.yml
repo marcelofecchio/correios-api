@@ -9,7 +9,7 @@ jobs:
   qualidade:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -44,7 +44,7 @@ jobs:
             testbench: '11'
     name: Laravel ${{ matrix.laravel }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
