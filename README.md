@@ -27,7 +27,7 @@ Componente PHP para a **API REST dos Correios (CWS – Correios Web Services)** 
 - Um cliente HTTP **PSR-18** e fábricas **PSR-17** (recomendado: Guzzle 7 ou superior). Sem nenhum instalado, o componente
   avisa com `ErroConfiguracao`.
 - Opcional: `ext-gd` e `ext-zlib` só para converter imagens em `^GFA` (`Etiquetas\ImagemZpl`).
-- Opcional: Laravel 11, 12 ou 13 para o ServiceProvider e a Facade.
+- Opcional: Laravel 12 ou 13 para o ServiceProvider e a Facade.
 
 ## Instalação
 

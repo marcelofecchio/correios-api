@@ -98,8 +98,8 @@ O singleton do `.env` continua preguiçoso e não precisa de configuração se n
 
 ## 6. Laravel 13
 
-`require-dev` aceita `illuminate/support ^13.0` e `orchestra/testbench ^11.0`, e o CI ganhou a matriz Laravel 11,
-12 e 13. A suíte completa passou com Laravel 13.35.0, Testbench 11.3.0, Pest 4.7.8 e PHPUnit 12.5.33.
+`require-dev` aceita `illuminate/support ^13.0` e `orchestra/testbench ^11.0`, e o CI ganhou a matriz Laravel 12
+e 13 (o Laravel 11 saiu depois da 0.2.0: o Composer recusa instalá-lo por alertas de segurança). A suíte completa passou com Laravel 13.35.0, Testbench 11.3.0, Pest 4.7.8 e PHPUnit 12.5.33.
 
 ## 7. Limites por serviço
 

@@ -5,6 +5,12 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Removido
+
+- Laravel 11 da matriz do CI e do `require-dev` (`illuminate/support ^12.0 || ^13.0`, `orchestra/testbench ^10.0 ||
+  ^11.0`). O Composer recusa instalar qualquer versão do Laravel 11 por alertas de segurança sem correção, e o
+  suporte de segurança dessa versão terminou. O `require` de produção continua sem restringir o Laravel.
+
 ## [0.2.0] - 2026-10-11
 
 Respostas às lacunas levantadas na construção do primeiro app que usa o componente (11/10/2026).
