@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarceloFecchio\Correios\Respostas;
 
+use MarceloFecchio\Correios\ArquivoPdf;
 use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Utilitarios\Arquivo;
 
@@ -12,7 +13,7 @@ use MarceloFecchio\Correios\Utilitarios\Arquivo;
  *
  * `respostaBruta()` não guarda o Base64 (que pode ter dezenas de KB): o campo `dados` é substituído pelo tamanho.
  */
-final readonly class ArquivoRotulo extends Resposta
+final readonly class ArquivoRotulo extends Resposta implements ArquivoPdf
 {
     private string $binario;
 

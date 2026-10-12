@@ -9,6 +9,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use MarceloFecchio\Correios\Configuracao;
 use MarceloFecchio\Correios\Correios;
+use MarceloFecchio\Correios\Etiquetas\ConversorLabelary;
+use MarceloFecchio\Correios\Etiquetas\ConversorPdf;
 use MarceloFecchio\Correios\FabricaCorreios;
 use Psr\Log\LoggerInterface;
 
@@ -19,6 +21,8 @@ use Psr\Log\LoggerInterface;
  *   configuração, nada falha até alguém pedir um deles.
  * - `FabricaCorreios`: singleton com o logger da aplicação, para criar um `Correios` por configuração quando as
  *   credenciais vêm do banco ou variam por ambiente/contrato.
+ * - `ConversorPdf`: `ConversorLabelary` a partir de `correios.labelary`, para converter o ZPL em PDF. Sem uso, nenhuma
+ *   chamada é feita.
  */
 final class CorreiosServiceProvider extends ServiceProvider
 {
@@ -44,6 +48,13 @@ final class CorreiosServiceProvider extends ServiceProvider
         );
 
         $this->app->alias(Correios::class, 'correios');
+
+        $this->app->singleton(ConversorPdf::class, static function (Application $app): ConversorPdf {
+            $config = $app->make(Repository::class)->get('correios.labelary', []);
+            $logger = $app->bound(LoggerInterface::class) ? $app->make(LoggerInterface::class) : null;
+
+            return ConversorLabelary::deArray(is_array($config) ? $config : [], logger: $logger instanceof LoggerInterface ? $logger : null);
+        });
     }
 
     public function boot(): void

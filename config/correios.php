@@ -76,6 +76,21 @@ return [
 
     'timeout' => env('CORREIOS_TIMEOUT', 30),
 
+    // Conversão do ZPL em PDF pelo Labelary (app(ConversorPdf::class)), alternativa ao rótulo oficial. ATENÇÃO: o
+    // ZPL leva nome, endereço e documento de remetente e destinatário; o plano gratuito não tem retenção zero de dados.
+    'labelary' => [
+        // Planos pagos: host e chave enviados pelo Labelary. Sem chave = plano gratuito (3 req/s, 5.000/dia)
+        'url' => env('CORREIOS_LABELARY_URL', 'https://api.labelary.com'),
+        'chave_api' => env('CORREIOS_LABELARY_CHAVE_API'),
+        // null = página do tamanho da etiqueta; ou A4, A5, A6, Carta, Oficio
+        'pagina' => env('CORREIOS_LABELARY_PAGINA'),
+        // Colunas x linhas por página; exige 'pagina'. Sem redução: no A4 cabem duas etiquetas 10x15 cm (2x1)
+        'layout' => env('CORREIOS_LABELARY_LAYOUT'),
+        // Borda tracejada para recortar (só com 'pagina')
+        'borda' => true,
+        'timeout' => env('CORREIOS_LABELARY_TIMEOUT', 30),
+    ],
+
     // Grava no log (DEBUG) o corpo das requisições e respostas. O corpo vai mascarado (token, documentos, nome,
     // endereço, telefone, e-mail); false = só método, URL, status e duração.
     'log_corpo' => env('CORREIOS_LOG_CORPO', true),

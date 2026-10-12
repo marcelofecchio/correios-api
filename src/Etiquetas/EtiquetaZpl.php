@@ -11,7 +11,7 @@ use Stringable;
 /**
  * Resultado da geração: texto ZPL (UTF-8 sem BOM, de `^XA` a `^XZ` + quebra de linha) e metadados.
  *
- * O envio à impressora não faz parte do componente: use `(string) $etiqueta` ou `salvar()`.
+ * O envio à impressora não faz parte do componente: use `(string) $etiqueta` ou `salvar()`. Para PDF, `paraPdf()`.
  */
 final readonly class EtiquetaZpl implements Stringable
 {
@@ -34,6 +34,12 @@ final readonly class EtiquetaZpl implements Stringable
     public function salvar(string $caminho): void
     {
         Arquivo::gravar($caminho, $this->zpl, 'o ZPL');
+    }
+
+    /** Converte em PDF com o conversor informado (ex.: `new ConversorLabelary()`). */
+    public function paraPdf(ConversorPdf $conversor): EtiquetaPdf
+    {
+        return $conversor->converter($this);
     }
 
     public function __toString(): string

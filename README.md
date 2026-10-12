@@ -430,6 +430,9 @@ Dois caminhos para a etiqueta de postagem; a escolha é da aplicação:
 | Formato | PDF A4 (ou layouts lineares) | Texto ZPL para impressora térmica |
 | Requisitos | Status 2, mesmas credenciais da criação | Código do objeto da pré-postagem |
 
+O ZPL também pode virar PDF pelo Labelary ([ZPL em PDF](#zpl-em-pdf-alternativa-ao-r%C3%B3tulo-oficial)), para quem não tem
+impressora térmica e não quer depender do rótulo oficial.
+
 ### Documentos em ZPL
 
 ```php
@@ -471,6 +474,46 @@ fclose($socket);
 
 Também funciona por compartilhamento de impressora (`copy /b etiqueta.zpl \\servidor\zebra` no Windows,
 `lp -d zebra -o raw etiqueta.zpl` no Linux) ou pelo navegador com **Zebra Browser Print** ou **QZ Tray**.
+
+### ZPL em PDF (alternativa ao rótulo oficial)
+
+`ConversorLabelary` converte qualquer `EtiquetaZpl` (postagem, DANFE ou as duas juntas) em PDF pela API do
+[Labelary](https://labelary.com/service.html), o mesmo motor do visualizador. Não precisa de token dos Correios nem
+de a pré-postagem estar no status 2.
+
+```php
+use MarceloFecchio\Correios\Etiquetas\ConversorLabelary;
+
+$etiqueta = $correios->etiquetas()->juntar($postagem, $danfe);
+$pdf = $etiqueta->paraPdf(new ConversorLabelary());     // ou (new ConversorLabelary())->converter($etiqueta)
+$pdf->salvar('/tmp/pedido-12345.pdf');                   // conteudoBinario(), conteudoBase64(), tamanhoBytes()
+```
+
+- **Tamanho:** densidade da etiqueta (203 dpi → 8 dpmm, 300 dpi → 12 dpmm) e tamanho tirado do `^PW`/`^LL` do ZPL
+  (10 × 15,5 cm na postagem). Uma etiqueta por página, no tamanho dela. O PDF é vetorial: textos e códigos de barras
+  não perdem definição; só os logos `^GFA` são imagem.
+- **Folha comum:** `new ConversorLabelary(pagina: TamanhoPagina::A4, layout: '2x1')` põe duas etiquetas por folha A4,
+  com borda tracejada para recortar (`borda: false` tira). O Labelary não reduz a etiqueta: `2x2` não cabe no A4 e
+  volta como `ErroApi` (HTTP 400).
+- **Mesma interface do rótulo oficial:** `EtiquetaPdf` e `ArquivoRotulo` implementam `ArquivoPdf`. Tipe o código da
+  aplicação com ela para trocar a origem do PDF sem mexer no resto.
+- **Outro serviço:** implemente `Etiquetas\ConversorPdf` (um método, `converter(EtiquetaZpl): EtiquetaPdf`) e injete-o
+  no lugar.
+- **Laravel:** `app(ConversorPdf::class)` devolve o `ConversorLabelary` montado a partir de `correios.labelary`
+  (`CORREIOS_LABELARY_CHAVE_API`, `CORREIOS_LABELARY_URL`, `CORREIOS_LABELARY_PAGINA`, `CORREIOS_LABELARY_LAYOUT`),
+  com o logger da aplicação.
+- **Erros:** `ErroValidacao` antes da chamada (ZPL vazio, mais de 50 etiquetas ou mais de 1 MB);
+  `ErroLimiteRequisicoes` no HTTP 429; `ErroApi` nos demais (a mensagem do Labelary vai em `mensagens`);
+  `ErroConexao` na falha de rede.
+
+| Plano do Labelary | Limite | Chave | Retenção zero de dados |
+|---|---|---|---|
+| Gratuito (`api.labelary.com`) | 3 req/s e 5.000/dia | não | **não** |
+| Plus / Business (pagos) | 6 a 10 req/s, 20.000 a 40.000/dia | `chaveApi` + `url` enviados pelo Labelary | sim |
+
+> **LGPD:** o ZPL leva nome, endereço e documento do remetente e do destinatário a um serviço de terceiros. O plano
+> gratuito não tem retenção zero de dados e roda no canal Beta. Em produção, prefira um plano pago, a versão
+> instalada localmente (On-Premise) ou o rótulo oficial. O log do conversor registra só método, URL, status e duração.
 
 ### Resolução
 
@@ -575,6 +618,10 @@ entrega; o Base64 de rótulos e DACE é omitido. Para não gravar corpo nenhum, 
 `Configuracao` (`'log_corpo' => false` no array, `CORREIOS_LOG_CORPO=false` no Laravel).
 
 ## Limitações conhecidas
+
+- **ZPL em PDF:** depende de um serviço de terceiros (Labelary), com os limites do plano. A conversão foi conferida
+  em 12/10/2026 com dados fictícios (postagem em 203 e 300 dpi, DANFE e folha A4 `2x1`); a leitura dos códigos do
+  PDF impresso em impressora comum pelos equipamentos dos Correios não foi testada.
 
 Pontos não testados, instáveis ou observados de forma diferente da especificação:
 

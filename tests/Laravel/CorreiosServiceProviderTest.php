@@ -74,3 +74,20 @@ it('registra a FabricaCorreios para credenciais que não vêm do .env', function
         ->and($homologacao->configuracao->ambiente)->toBe(Ambiente::Homologacao)
         ->and($producao)->not->toBe($homologacao);
 });
+
+it('registra o ConversorPdf (Labelary) a partir de correios.labelary', function (): void {
+    config()->set('correios.labelary', ['pagina' => 'A4', 'layout' => '2x2']);
+
+    $conversor = app(MarceloFecchio\Correios\Etiquetas\ConversorPdf::class);
+
+    expect($conversor)->toBeInstanceOf(MarceloFecchio\Correios\Etiquetas\ConversorLabelary::class)
+        ->and(app(MarceloFecchio\Correios\Etiquetas\ConversorPdf::class))->toBe($conversor);
+});
+
+it('traz a seção labelary no arquivo de configuração padrão', function (): void {
+    $config = require dirname(__DIR__, 2) . '/config/correios.php';
+
+    expect($config['labelary'])->toHaveKeys(['url', 'chave_api', 'pagina', 'layout', 'borda', 'timeout']);
+
+    MarceloFecchio\Correios\Etiquetas\ConversorLabelary::deArray($config['labelary']);
+});

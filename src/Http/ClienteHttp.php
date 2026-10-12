@@ -125,7 +125,8 @@ final class ClienteHttp
         return $resposta;
     }
 
-    private static function clientePadrao(float $timeout): ClientInterface
+    /** Guzzle com o timeout, se instalado; senão, o cliente PSR-18 descoberto. Também usado por `ConversorLabelary`. */
+    public static function clientePadrao(float $timeout): ClientInterface
     {
         if (class_exists(\GuzzleHttp\Client::class)) {
             return new \GuzzleHttp\Client(['timeout' => $timeout, 'connect_timeout' => min(10.0, $timeout)]);

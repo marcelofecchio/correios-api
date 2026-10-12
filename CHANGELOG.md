@@ -5,6 +5,15 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Adicionado
+
+- ZPL em PDF, alternativa ao rótulo oficial: interface `Etiquetas\ConversorPdf`, implementação `ConversorLabelary`
+  (API do Labelary, plano gratuito ou pago com `chaveApi`), resultado `EtiquetaPdf` e atalho
+  `EtiquetaZpl::paraPdf()`. Tamanho tirado do `^PW`/`^LL`, densidade da resolução da etiqueta e, opcionalmente,
+  várias etiquetas por folha (`TamanhoPagina`, `layout`).
+- Interface `ArquivoPdf`, implementada por `EtiquetaPdf` e `Respostas\ArquivoRotulo`.
+- Laravel: `ConversorPdf` registrado a partir da seção `labelary` do `config/correios.php`.
+
 ## [0.3.0] - 2026-10-12
 
 Segunda rodada de lacunas do MARCELO ENVIOS (12/10/2026), com os resultados da homologação do app.
