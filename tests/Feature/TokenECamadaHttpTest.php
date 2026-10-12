@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 use GuzzleHttp\Psr7\Response;
 use Http\Client\Exception\NetworkException;
+use MarceloFecchio\Correios\Dto\Item;
+use MarceloFecchio\Correios\Dto\NovaPrePostagem;
+use MarceloFecchio\Correios\Dto\Volume;
 use MarceloFecchio\Correios\Enums\Ambiente;
+use MarceloFecchio\Correios\Enums\FormatoObjeto;
 use MarceloFecchio\Correios\Excecoes\CorreiosException;
 use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroAutenticacao;
@@ -12,6 +16,7 @@ use MarceloFecchio\Correios\Excecoes\ErroConexao;
 use MarceloFecchio\Correios\Excecoes\ErroConfiguracao;
 use MarceloFecchio\Correios\Excecoes\ErroLimiteRequisicoes;
 use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
+use MarceloFecchio\Correios\Excecoes\ErroRotuloEmGeracao;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
 use Psr\Log\AbstractLogger;
 
@@ -212,6 +217,60 @@ describe('Camada HTTP e erros', function (): void {
             ->and($log)->not->toContain('JVBER')
             ->and($log)->toContain('omitido')
             ->and($log)->toContain('apihom.correios.com.br');
+    });
+
+    it('mascara nome, endereço, telefone e e-mail das pessoas no log', function (): void {
+        $logger = new LoggerMemoria();
+        $rastro = ['objetos' => [['codObjeto' => 'AB043180865BR', 'eventos' => [[
+            'codigo' => 'BDE', 'tipo' => '01', 'latitude' => '-23.55', 'longitude' => '-46.63',
+            'recebedor' => ['nome' => 'Maria Aparecida Souza', 'documento' => '52998224725', 'comentario' => 'porteiro'],
+            'unidade' => ['nome' => 'CDD Centro', 'endereco' => ['cidade' => 'SÃO PAULO', 'uf' => 'SP']],
+            'destinatario' => ['nome' => 'Maria Aparecida Souza', 'telefones' => [['ddd' => '11', 'numero' => '912345678']], 'endereco' => ['logradouro' => 'Praça da Sé', 'cep' => '01001000', 'cidade' => 'São Paulo']],
+        ]]]]];
+        $cliente = clienteMock(respostaFixture(200, 'prepostagem_criada.json'), respostaJson(200, $rastro));
+        $correios = correiosTeste($cliente, logger: $logger);
+        $correios->prePostagem()->criar(tokenTeste(), new NovaPrePostagem(
+            destinatario: clienteTeste(),
+            servico: 'sedex',
+            volume: new Volume(800, FormatoObjeto::CaixaPacote, 30, 20, 10),
+            itens: [new Item('Teclado para notebook', 1, 25000)],
+        ));
+        $correios->rastro()->rastrear(tokenTeste(), 'AB043180865BR');
+
+        $log = $logger->tudo();
+        foreach (['Maria Aparecida', 'Loja Teste', 'Praça da Sé', 'Paulista', 'maria.souza', '912345678', '987654321', '-23.55', 'porteiro'] as $dadoPessoal) {
+            expect($log)->not->toContain($dadoPessoal);
+        }
+        expect($log)->toContain('01001000')
+            ->and($log)->toContain('São Paulo')
+            ->and($log)->toContain('CDD Centro')
+            ->and($log)->toContain('Teclado para notebook');
+    });
+
+    it('não grava o corpo com logarCorpo falso', function (): void {
+        $logger = new LoggerMemoria();
+        $correios = correiosTeste(clienteMock(respostaFixture(200, 'cep_01001000.json')), configuracaoTeste(['log_corpo' => 'false']), $logger);
+        $correios->cep()->consultar(tokenTeste(), '01001000');
+
+        expect($correios->configuracao->logarCorpo)->toBeFalse()
+            ->and(array_column(array_column($logger->registros, 'contexto'), 'corpo'))->toBe([null, null])
+            ->and($logger->tudo())->toContain('cep/v2/enderecos/01001000')
+            ->and(fn() => configuracaoTeste(['log_corpo' => 'talvez']))->toThrow(ErroConfiguracao::class, 'log_corpo');
+    });
+
+    it('lê o PPN-291 como ErroRotuloEmGeracao com o recibo', function (): void {
+        $corpo = ['mensagem' => 'PPN-291: O rótulo ainda não foi gerado. Por favor, consulte novamente. idRecibo: 6dbebb7bf0554651'];
+        try {
+            correiosTeste(clienteMock(respostaJson(200, $corpo)))->rotulo()->baixar(tokenTeste(), '6dbebb7bf0554651');
+            $this->fail('Deveria lançar ErroRotuloEmGeracao');
+        } catch (ErroRotuloEmGeracao $e) {
+            expect($e->codigoErro)->toBe('PPN-291')
+                ->and($e->idRecibo())->toBe('6dbebb7bf0554651')
+                ->and($e)->toBeInstanceOf(ErroApi::class)
+                ->and($e)->not->toBeInstanceOf(ErroPrePostagemPendente::class);
+        }
+
+        expect((new ErroRotuloEmGeracao('x', 200, ['PPN-291: sem recibo']))->idRecibo())->toBeNull();
     });
 
     it('registra falhas de conexão no log', function (): void {

@@ -1,0 +1,1516 @@
+[
+    {
+        "id": "wh-rastro",
+        "nome": "Rastreamento de objetos",
+        "descricao": "Objetivo de notificar os assinantes deste serviço quando surgem novos eventos",
+        "disponibilizacao": "E",
+        "nuApi": 534,
+        "tipoEventos": [
+            {
+                "tipo": "BDE-1",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDE-2",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDE-3",
+                "descricao": "Remetente não retirou objeto na Unidade dos Correios"
+            },
+            {
+                "tipo": "BDE-4",
+                "descricao": "Objeto não entregue - cliente recusou-se a receber o objeto"
+            },
+            {
+                "tipo": "BDE-5",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDE-6",
+                "descricao": "Objeto não entregue - cliente desconhecido no local"
+            },
+            {
+                "tipo": "BDE-7",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDE-8",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDE-10",
+                "descricao": "Objeto não entregue - cliente mudou-se"
+            },
+            {
+                "tipo": "BDE-12",
+                "descricao": "Remetente não retirou objeto na Unidade dos Correios"
+            },
+            {
+                "tipo": "BDE-13",
+                "descricao": "Objeto atingido por incêndio em unidade operacional"
+            },
+            {
+                "tipo": "BDE-14",
+                "descricao": "Objeto entregue ao remetente"
+            },
+            {
+                "tipo": "BDE-15",
+                "descricao": "Recebido na unidade de distribuição"
+            },
+            {
+                "tipo": "BDE-18",
+                "descricao": "Carteiro não atendido - Entrega não realizada"
+            },
+            {
+                "tipo": "BDE-19",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDE-20",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDE-21",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDE-22",
+                "descricao": "Objeto devolvido aos Correios"
+            },
+            {
+                "tipo": "BDE-23",
+                "descricao": "Objeto entregue ao remetente"
+            },
+            {
+                "tipo": "BDE-24",
+                "descricao": "Objeto disponível para retirada em Caixa Postal"
+            },
+            {
+                "tipo": "BDE-25",
+                "descricao": "Objeto não entregue - empresa sem expediente"
+            },
+            {
+                "tipo": "BDE-26",
+                "descricao": "Prazo de retirada pelo destinatário encerrado"
+            },
+            {
+                "tipo": "BDE-28",
+                "descricao": "Objeto e/ou conteúdo avariado"
+            },
+            {
+                "tipo": "BDE-32",
+                "descricao": "Objeto com data de entrega agendada"
+            },
+            {
+                "tipo": "BDE-33",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDE-34",
+                "descricao": "Objeto não entregue - Endereço não encontrado"
+            },
+            {
+                "tipo": "BDE-35",
+                "descricao": "Objeto não entregue ou não coletado"
+            },
+            {
+                "tipo": "BDE-36",
+                "descricao": "Objeto não entregue ou não coletado"
+            },
+            {
+                "tipo": "BDE-37",
+                "descricao": "Objeto e/ou conteúdo avariado por acidente com veículo"
+            },
+            {
+                "tipo": "BDE-38",
+                "descricao": "Objeto endereçado à empresa falida"
+            },
+            {
+                "tipo": "BDE-39",
+                "descricao": "A entrega não pode ser efetuada"
+            },
+            {
+                "tipo": "BDE-40",
+                "descricao": "A entrada do objeto no Brasil não foi autorizada pelos órgãos fiscalizadores"
+            },
+            {
+                "tipo": "BDE-41",
+                "descricao": "A entrega do objeto está condicionada à composição do lote"
+            },
+            {
+                "tipo": "BDE-42",
+                "descricao": "Lote de objetos incompleto"
+            },
+            {
+                "tipo": "BDE-43",
+                "descricao": "Objeto apreendido por órgão de fiscalização"
+            },
+            {
+                "tipo": "BDE-44",
+                "descricao": "Aguardando órgão anuente apresentar documentação fiscal"
+            },
+            {
+                "tipo": "BDE-45",
+                "descricao": "Objeto recebido na unidade de distribuição"
+            },
+            {
+                "tipo": "BDE-46",
+                "descricao": "Tentativa de entrega não efetuada"
+            },
+            {
+                "tipo": "BDE-47",
+                "descricao": "Saída para entrega cancelada"
+            },
+            {
+                "tipo": "BDE-48",
+                "descricao": "Retirada em Unidade dos Correios não autorizada pelo remetente"
+            },
+            {
+                "tipo": "BDE-49",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDE-50",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDE-51",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDE-52",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDE-53",
+                "descricao": "Objeto reimpresso e reenviado"
+            },
+            {
+                "tipo": "BDE-54",
+                "descricao": "Aguardando a guia de recolhimento para pagamento do ICMS Importação"
+            },
+            {
+                "tipo": "BDE-55",
+                "descricao": "Solicitação de revisão do tributo"
+            },
+            {
+                "tipo": "BDE-56",
+                "descricao": "Objeto com declaração aduaneira ausente ou incorreta"
+            },
+            {
+                "tipo": "BDE-57",
+                "descricao": "Revisão de tributo concluída - Objeto liberado"
+            },
+            {
+                "tipo": "BDE-58",
+                "descricao": "Revisão de tributo concluída - Tributo alterado"
+            },
+            {
+                "tipo": "BDE-59",
+                "descricao": "Revisão de tributo concluída - Tributo mantido"
+            },
+            {
+                "tipo": "BDE-60",
+                "descricao": "Objeto encontra-se aguardando prazo para refugo"
+            },
+            {
+                "tipo": "BDE-61",
+                "descricao": "Objeto refugado"
+            },
+            {
+                "tipo": "BDE-62",
+                "descricao": "Em devolução à origem por determinação da Receita Federal"
+            },
+            {
+                "tipo": "BDE-63",
+                "descricao": "Pagamento não efetuado no prazo"
+            },
+            {
+                "tipo": "BDE-64",
+                "descricao": "Solicitação de dados não atendida"
+            },
+            {
+                "tipo": "BDE-66",
+                "descricao": "Área com distribuição sujeita a prazo diferenciado"
+            },
+            {
+                "tipo": "BDE-67",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDE-68",
+                "descricao": "Objeto entregue na Caixa de Correios Inteligente"
+            },
+            {
+                "tipo": "BDE-70",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDE-71",
+                "descricao": "Objeto apreendido por: ANVISA/VIGILANCIA SANITARIA"
+            },
+            {
+                "tipo": "BDE-72",
+                "descricao": "Objeto apreendido por: BOMBEIROS"
+            },
+            {
+                "tipo": "BDE-73",
+                "descricao": "Objeto apreendido por: EXERCITO"
+            },
+            {
+                "tipo": "BDE-74",
+                "descricao": "Objeto apreendido por: IBAMA"
+            },
+            {
+                "tipo": "BDE-76",
+                "descricao": "Objeto apreendido por: POLICIA CIVIL/MILITAR"
+            },
+            {
+                "tipo": "BDE-77",
+                "descricao": "Objeto disponível em locker"
+            },
+            {
+                "tipo": "BDE-79",
+                "descricao": "Objeto entregue ao contratante"
+            },
+            {
+                "tipo": "BDE-80",
+                "descricao": "Objeto não localizado no fluxo postal"
+            },
+            {
+                "tipo": "BDE-81",
+                "descricao": " A saída do objeto do Brasil não foi autorizada pelos órgãos fiscalizadores"
+            },
+            {
+                "tipo": "BDE-82",
+                "descricao": "Necessário complementar endereço de entrega"
+            },
+            {
+                "tipo": "BDE-83",
+                "descricao": "Prazo de regularização encerrado"
+            },
+            {
+                "tipo": "BDE-84",
+                "descricao": "Verificando situação do objeto"
+            },
+            {
+                "tipo": "BDE-85",
+                "descricao": "Objeto recebido no Brasil com código de rastreamento fora do padrão"
+            },
+            {
+                "tipo": "BDE-86",
+                "descricao": "Objeto com conteúdo avariado"
+            },
+            {
+                "tipo": "BDE-87",
+                "descricao": "Objeto destinado a outro país"
+            },
+            {
+                "tipo": "BDE-89",
+                "descricao": "Localidade desconhecida no Brasil"
+            },
+            {
+                "tipo": "BDE-98",
+                "descricao": "Objeto não localizado no fluxo postal"
+            },
+            {
+                "tipo": "BDI-1",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDI-2",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDI-3",
+                "descricao": "Remetente não retirou objeto na Unidade dos Correios"
+            },
+            {
+                "tipo": "BDI-4",
+                "descricao": "Objeto não entregue - cliente recusou-se a receber o objeto"
+            },
+            {
+                "tipo": "BDI-5",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDI-6",
+                "descricao": "Cliente desconhecido no local - Entrega não realizada"
+            },
+            {
+                "tipo": "BDI-7",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDI-8",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDI-10",
+                "descricao": "Objeto não entregue - cliente mudou-se"
+            },
+            {
+                "tipo": "BDI-12",
+                "descricao": "Remetente não retirou objeto na Unidade dos Correios"
+            },
+            {
+                "tipo": "BDI-13",
+                "descricao": "Objeto atingido por incêndio em unidade operacional"
+            },
+            {
+                "tipo": "BDI-14",
+                "descricao": "Objeto entregue ao remetente"
+            },
+            {
+                "tipo": "BDI-15",
+                "descricao": "Recebido na unidade de distribuição"
+            },
+            {
+                "tipo": "BDI-18",
+                "descricao": "Carteiro não atendido - Entrega não realizada"
+            },
+            {
+                "tipo": "BDI-19",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDI-20",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDI-21",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDI-22",
+                "descricao": "Objeto devolvido aos Correios"
+            },
+            {
+                "tipo": "BDI-23",
+                "descricao": "Objeto entregue ao remetente"
+            },
+            {
+                "tipo": "BDI-24",
+                "descricao": "Objeto disponível para retirada em Caixa Postal"
+            },
+            {
+                "tipo": "BDI-25",
+                "descricao": "Objeto não entregue - empresa sem expediente"
+            },
+            {
+                "tipo": "BDI-26",
+                "descricao": "Prazo de retirada pelo destinatário encerrado"
+            },
+            {
+                "tipo": "BDI-28",
+                "descricao": "Objeto e/ou conteúdo avariado"
+            },
+            {
+                "tipo": "BDI-32",
+                "descricao": "Objeto com data de entrega agendada"
+            },
+            {
+                "tipo": "BDI-33",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDI-34",
+                "descricao": "Objeto não entregue - Endereço não encontrado"
+            },
+            {
+                "tipo": "BDI-35",
+                "descricao": "Objeto não entregue ou não coletado"
+            },
+            {
+                "tipo": "BDI-36",
+                "descricao": "Objeto não entregue ou não coletado"
+            },
+            {
+                "tipo": "BDI-37",
+                "descricao": "Objeto e/ou conteúdo avariado por acidente com veículo"
+            },
+            {
+                "tipo": "BDI-38",
+                "descricao": "Objeto endereçado à empresa falida"
+            },
+            {
+                "tipo": "BDI-39",
+                "descricao": "A entrega não pode ser efetuada"
+            },
+            {
+                "tipo": "BDI-40",
+                "descricao": "A entrada do objeto no Brasil não foi autorizada pelos órgãos fiscalizadores"
+            },
+            {
+                "tipo": "BDI-41",
+                "descricao": "A entrega do objeto está condicionada à composição do lote"
+            },
+            {
+                "tipo": "BDI-42",
+                "descricao": "Lote de objetos incompleto"
+            },
+            {
+                "tipo": "BDI-43",
+                "descricao": "Objeto apreendido por órgão de fiscalização"
+            },
+            {
+                "tipo": "BDI-44",
+                "descricao": "Aguardando órgão anuente apresentar documentação fiscal"
+            },
+            {
+                "tipo": "BDI-45",
+                "descricao": "Objeto recebido na unidade de distribuição"
+            },
+            {
+                "tipo": "BDI-46",
+                "descricao": "Tentativa de entrega não efetuada"
+            },
+            {
+                "tipo": "BDI-47",
+                "descricao": "Saída para entrega cancelada"
+            },
+            {
+                "tipo": "BDI-48",
+                "descricao": "Retirada em Unidade dos Correios não autorizada pelo remetente"
+            },
+            {
+                "tipo": "BDI-49",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDI-50",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDI-51",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDI-52",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDI-53",
+                "descricao": "Objeto reimpresso e reenviado"
+            },
+            {
+                "tipo": "BDI-54",
+                "descricao": "Aguardando a guia de recolhimento para pagamento do ICMS Importação"
+            },
+            {
+                "tipo": "BDI-55",
+                "descricao": "Solicitação de revisão do tributo"
+            },
+            {
+                "tipo": "BDI-56",
+                "descricao": "Objeto com declaração aduaneira ausente ou incorreta"
+            },
+            {
+                "tipo": "BDI-57",
+                "descricao": "Revisão de tributo concluída - Objeto liberado"
+            },
+            {
+                "tipo": "BDI-58",
+                "descricao": "Revisão de tributo concluída - Tributo alterado"
+            },
+            {
+                "tipo": "BDI-59",
+                "descricao": "Revisão de tributo concluída - Tributo mantido"
+            },
+            {
+                "tipo": "BDI-60",
+                "descricao": "Objeto encontra-se aguardando prazo para refugo"
+            },
+            {
+                "tipo": "BDI-61",
+                "descricao": "Objeto refugado"
+            },
+            {
+                "tipo": "BDI-62",
+                "descricao": "Em devolução à origem por determinação da Receita Federal"
+            },
+            {
+                "tipo": "BDI-63",
+                "descricao": "Pagamento não efetuado no prazo"
+            },
+            {
+                "tipo": "BDI-66",
+                "descricao": "Área com distribuição sujeita a prazo diferenciado"
+            },
+            {
+                "tipo": "BDI-67",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDI-68",
+                "descricao": "Objeto entregue na Caixa de Correios Inteligente"
+            },
+            {
+                "tipo": "BDI-70",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDI-71",
+                "descricao": "Objeto apreendido por: ANVISA/VIGILANCIA SANITARIA"
+            },
+            {
+                "tipo": "BDI-72",
+                "descricao": "Objeto apreendido por: BOMBEIROS"
+            },
+            {
+                "tipo": "BDI-73",
+                "descricao": "Objeto apreendido por: EXERCITO"
+            },
+            {
+                "tipo": "BDI-74",
+                "descricao": "Objeto apreendido por: IBAMA"
+            },
+            {
+                "tipo": "BDI-76",
+                "descricao": "Objeto apreendido por: POLICIA CIVIL/MILITAR"
+            },
+            {
+                "tipo": "BDI-77",
+                "descricao": "Objeto disponível em locker"
+            },
+            {
+                "tipo": "BDI-79",
+                "descricao": "Objeto entregue ao contratante"
+            },
+            {
+                "tipo": "BDI-80",
+                "descricao": "Objeto não localizado no fluxo postal"
+            },
+            {
+                "tipo": "BDI-81",
+                "descricao": " A saída do objeto do Brasil não foi autorizada pelos órgãos fiscalizadores"
+            },
+            {
+                "tipo": "BDI-82",
+                "descricao": "Necessário complementar endereço de entrega"
+            },
+            {
+                "tipo": "BDI-83",
+                "descricao": "Prazo de regularização encerrado"
+            },
+            {
+                "tipo": "BDI-84",
+                "descricao": "Verificando situação do objeto"
+            },
+            {
+                "tipo": "BDI-85",
+                "descricao": "Objeto recebido no Brasil com código de rastreamento fora do padrão"
+            },
+            {
+                "tipo": "BDI-86",
+                "descricao": "Objeto com conteúdo avariado"
+            },
+            {
+                "tipo": "BDI-87",
+                "descricao": "Objeto destinado a outro país"
+            },
+            {
+                "tipo": "BDI-89",
+                "descricao": "Localidade desconhecida no Brasil"
+            },
+            {
+                "tipo": "BDI-98",
+                "descricao": "Objeto não localizado no fluxo postal."
+            },
+            {
+                "tipo": "BDR-1",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDR-2",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDR-3",
+                "descricao": "Remetente não retirou objeto na Unidade dos Correios"
+            },
+            {
+                "tipo": "BDR-4",
+                "descricao": "Objeto não entregue - cliente recusou-se a receber o objeto"
+            },
+            {
+                "tipo": "BDR-5",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDR-6",
+                "descricao": "Objeto não entregue - cliente desconhecido no local"
+            },
+            {
+                "tipo": "BDR-7",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDR-8",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDR-10",
+                "descricao": "Objeto não entregue - cliente mudou-se"
+            },
+            {
+                "tipo": "BDR-12",
+                "descricao": "Remetente não retirou objeto na Unidade dos Correios"
+            },
+            {
+                "tipo": "BDR-13",
+                "descricao": "Objeto atingido por incêndio em unidade operacional"
+            },
+            {
+                "tipo": "BDR-14",
+                "descricao": "Objeto entregue ao remetente"
+            },
+            {
+                "tipo": "BDR-15",
+                "descricao": "Recebido na unidade de distribuição"
+            },
+            {
+                "tipo": "BDR-18",
+                "descricao": "Carteiro não atendido - Entrega não realizada"
+            },
+            {
+                "tipo": "BDR-19",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "BDR-20",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDR-21",
+                "descricao": "Objeto não entregue - carteiro não atendido"
+            },
+            {
+                "tipo": "BDR-22",
+                "descricao": "Objeto devolvido aos Correios"
+            },
+            {
+                "tipo": "BDR-23",
+                "descricao": "Objeto entregue ao remetente"
+            },
+            {
+                "tipo": "BDR-24",
+                "descricao": "Objeto disponível para retirada em Caixa Postal"
+            },
+            {
+                "tipo": "BDR-25",
+                "descricao": "Objeto não entregue - empresa sem expediente"
+            },
+            {
+                "tipo": "BDR-26",
+                "descricao": "Prazo de retirada pelo destinatário encerrado"
+            },
+            {
+                "tipo": "BDR-28",
+                "descricao": "Objeto e/ou conteúdo avariado"
+            },
+            {
+                "tipo": "BDR-31",
+                "descricao": "Pagamento confirmado"
+            },
+            {
+                "tipo": "BDR-32",
+                "descricao": "Objeto com data de entrega agendada"
+            },
+            {
+                "tipo": "BDR-33",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDR-34",
+                "descricao": "Objeto não entregue - Endereço não encontrado"
+            },
+            {
+                "tipo": "BDR-35",
+                "descricao": "Objeto não entregue ou não coletado"
+            },
+            {
+                "tipo": "BDR-36",
+                "descricao": "Objeto não entregue ou não coletado"
+            },
+            {
+                "tipo": "BDR-37",
+                "descricao": "Objeto e/ou conteúdo avariado por acidente com veículo"
+            },
+            {
+                "tipo": "BDR-38",
+                "descricao": "Objeto endereçado à empresa falida"
+            },
+            {
+                "tipo": "BDR-39",
+                "descricao": "A entrega não pode ser efetuada"
+            },
+            {
+                "tipo": "BDR-40",
+                "descricao": "A entrada do objeto no Brasil não foi autorizada pelos órgãos fiscalizadores"
+            },
+            {
+                "tipo": "BDR-41",
+                "descricao": "A entrega do objeto está condicionada à composição do lote"
+            },
+            {
+                "tipo": "BDR-42",
+                "descricao": "Lote de objetos incompleto"
+            },
+            {
+                "tipo": "BDR-43",
+                "descricao": "Objeto apreendido por órgão de fiscalização"
+            },
+            {
+                "tipo": "BDR-44",
+                "descricao": "Aguardando órgão anuente apresentar documentação fiscal"
+            },
+            {
+                "tipo": "BDR-45",
+                "descricao": "Objeto recebido na unidade de distribuição"
+            },
+            {
+                "tipo": "BDR-46",
+                "descricao": "Tentativa de entrega não efetuada"
+            },
+            {
+                "tipo": "BDR-47",
+                "descricao": "Saída para entrega cancelada"
+            },
+            {
+                "tipo": "BDR-48",
+                "descricao": "Retirada em Unidade dos Correios não autorizada pelo remetente"
+            },
+            {
+                "tipo": "BDR-49",
+                "descricao": "Objeto em devolução"
+            },
+            {
+                "tipo": "BDR-50",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDR-51",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDR-52",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "BDR-53",
+                "descricao": "Objeto reimpresso e reenviado"
+            },
+            {
+                "tipo": "BDR-54",
+                "descricao": "Aguardando a guia de recolhimento para pagamento do ICMS Importação"
+            },
+            {
+                "tipo": "BDR-55",
+                "descricao": "Solicitação de revisão do tributo"
+            },
+            {
+                "tipo": "BDR-56",
+                "descricao": "Objeto com declaração aduaneira ausente ou incorreta"
+            },
+            {
+                "tipo": "BDR-57",
+                "descricao": "Revisão de tributo concluída - Objeto liberado"
+            },
+            {
+                "tipo": "BDR-58",
+                "descricao": "Revisão de tributo concluída - Tributo alterado"
+            },
+            {
+                "tipo": "BDR-59",
+                "descricao": "Revisão de tributo concluída - Tributo mantido"
+            },
+            {
+                "tipo": "BDR-60",
+                "descricao": "Objeto encontra-se aguardando prazo para refugo"
+            },
+            {
+                "tipo": "BDR-61",
+                "descricao": "Objeto refugado"
+            },
+            {
+                "tipo": "BDR-62",
+                "descricao": "Em devolução à origem por determinação da Receita Federal"
+            },
+            {
+                "tipo": "BDR-63",
+                "descricao": "Pagamento não efetuado no prazo"
+            },
+            {
+                "tipo": "BDR-64",
+                "descricao": "Solicitação de dados não atendida"
+            },
+            {
+                "tipo": "BDR-66",
+                "descricao": "Área com distribuição sujeita a prazo diferenciado"
+            },
+            {
+                "tipo": "BDR-67",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDR-68",
+                "descricao": "Objeto entregue na Caixa de Correios Inteligente"
+            },
+            {
+                "tipo": "BDR-70",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "BDR-71",
+                "descricao": "Objeto apreendido por: ANVISA/VIGILANCIA SANITARIA"
+            },
+            {
+                "tipo": "BDR-72",
+                "descricao": "Objeto apreendido por: BOMBEIROS"
+            },
+            {
+                "tipo": "BDR-73",
+                "descricao": "Objeto apreendido por: EXERCITO"
+            },
+            {
+                "tipo": "BDR-74",
+                "descricao": "Objeto apreendido por: IBAMA"
+            },
+            {
+                "tipo": "BDR-76",
+                "descricao": "Objeto apreendido por: POLICIA CIVIL/MILITAR"
+            },
+            {
+                "tipo": "BDR-77",
+                "descricao": "Objeto disponível em locker"
+            },
+            {
+                "tipo": "BDR-79",
+                "descricao": "Objeto entregue ao contratante"
+            },
+            {
+                "tipo": "BDR-80",
+                "descricao": "Objeto não localizado no fluxo postal"
+            },
+            {
+                "tipo": "BDR-81",
+                "descricao": "A saída do objeto do Brasil não foi autorizada pelos órgãos fiscalizadores"
+            },
+            {
+                "tipo": "BDR-82",
+                "descricao": "Necessário complementar endereço de entrega"
+            },
+            {
+                "tipo": "BDR-83",
+                "descricao": "Prazo de regularização encerrado"
+            },
+            {
+                "tipo": "BDR-84",
+                "descricao": "Verificando situação do objeto"
+            },
+            {
+                "tipo": "BDR-85",
+                "descricao": "Objeto recebido no Brasil com código de rastreamento fora do padrão"
+            },
+            {
+                "tipo": "BDR-86",
+                "descricao": "Objeto com conteúdo avariado"
+            },
+            {
+                "tipo": "BDR-87",
+                "descricao": "Objeto destinado a outro país"
+            },
+            {
+                "tipo": "BDR-89",
+                "descricao": "Localidade desconhecida no Brasil"
+            },
+            {
+                "tipo": "BLQ-1",
+                "descricao": "Solicitação de suspensão de entrega recebida"
+            },
+            {
+                "tipo": "BLQ-5",
+                "descricao": "Solicitação de suspensão de entrega recebida"
+            },
+            {
+                "tipo": "BLQ-11",
+                "descricao": "Solicitação de suspensão de entrega recebida"
+            },
+            {
+                "tipo": "BLQ-21",
+                "descricao": "Solicitação de suspensão de entrega recebida"
+            },
+            {
+                "tipo": "BLQ-22",
+                "descricao": "Solicitação de suspensão de entrega recebida"
+            },
+            {
+                "tipo": "BLQ-24",
+                "descricao": "Desbloqueio de objeto indenizado"
+            },
+            {
+                "tipo": "BLQ-30",
+                "descricao": "Bloqueio teste"
+            },
+            {
+                "tipo": "BLQ-31",
+                "descricao": "Extravio varejo pós-indenizado"
+            },
+            {
+                "tipo": "BLQ-51",
+                "descricao": "Entrega suspensa"
+            },
+            {
+                "tipo": "BLQ-54",
+                "descricao": "Objeto será reencaminhado para entrega"
+            },
+            {
+                "tipo": "BLQ-61",
+                "descricao": "Desbloqueado"
+            },
+            {
+                "tipo": "CAR-5",
+                "descricao": "Objeto em trânsito - por favor aguarde"
+            },
+            {
+                "tipo": "CMT-0",
+                "descricao": "Objeto recebido na Unidade dos Correios"
+            },
+            {
+                "tipo": "CO-1",
+                "descricao": "Objeto coletado"
+            },
+            {
+                "tipo": "CO-2",
+                "descricao": "Coleta solicitada"
+            },
+            {
+                "tipo": "CO-3",
+                "descricao": "Carteiro saiu para coleta do objeto"
+            },
+            {
+                "tipo": "CO-5",
+                "descricao": "1ª tentativa de coleta sem sucesso"
+            },
+            {
+                "tipo": "CO-6",
+                "descricao": "2ª tentativa de coleta sem sucesso"
+            },
+            {
+                "tipo": "CO-8",
+                "descricao": "Objeto entregue ao destinatário"
+            },
+            {
+                "tipo": "CO-9",
+                "descricao": "Coleta Cancelada"
+            },
+            {
+                "tipo": "CO-10",
+                "descricao": "Coleta cancelada pelo cliente"
+            },
+            {
+                "tipo": "CO-11",
+                "descricao": "Objeto Sinistrado"
+            },
+            {
+                "tipo": "CO-13",
+                "descricao": "Objeto não coletado"
+            },
+            {
+                "tipo": "CO-14",
+                "descricao": "Transformado em e-ticket"
+            },
+            {
+                "tipo": "CO-15",
+                "descricao": "Objeto coletado após o horário limite da unidade"
+            },
+            {
+                "tipo": "CO-16",
+                "descricao": "Objeto coletado aguardando conferência no destino"
+            },
+            {
+                "tipo": "DO-1",
+                "descricao": "Objeto em trânsito - por favor aguarde"
+            },
+            {
+                "tipo": "DO-2",
+                "descricao": "Objeto em trânsito - por favor aguarde"
+            },
+            {
+                "tipo": "EST-1",
+                "descricao": "Favor desconsiderar a informação anterior"
+            },
+            {
+                "tipo": "EST-2",
+                "descricao": "Favor desconsiderar a informação anterior"
+            },
+            {
+                "tipo": "EST-3",
+                "descricao": "Favor desconsiderar a informação anterior"
+            },
+            {
+                "tipo": "EST-4",
+                "descricao": "Favor desconsiderar a informação anterior"
+            },
+            {
+                "tipo": "EST-5",
+                "descricao": "Favor desconsiderar a informação anterior"
+            },
+            {
+                "tipo": "EST-6",
+                "descricao": "Favor desconsiderar a informação anterior"
+            },
+            {
+                "tipo": "EST-9",
+                "descricao": "Favor desconsiderar a informação anterior"
+            },
+            {
+                "tipo": "FC-1",
+                "descricao": "Objeto será devolvido por solicitação do contratante/remetente"
+            },
+            {
+                "tipo": "FC-2",
+                "descricao": "Objeto com data de entrega agendada"
+            },
+            {
+                "tipo": "FC-3",
+                "descricao": "Objeto em correção de rota"
+            },
+            {
+                "tipo": "FC-4",
+                "descricao": "Objeto não entregue - endereço incorreto"
+            },
+            {
+                "tipo": "FC-5",
+                "descricao": "Objeto devolvido aos Correios"
+            },
+            {
+                "tipo": "FC-7",
+                "descricao": "Objeto não entregue - empresa sem expediente"
+            },
+            {
+                "tipo": "FC-8",
+                "descricao": "Área com distribuição sujeita a prazo diferenciado"
+            },
+            {
+                "tipo": "FC-9",
+                "descricao": "Remetente não retirou objeto na Unidade dos Correios"
+            },
+            {
+                "tipo": "FC-10",
+                "descricao": "Objeto recebido na unidade de distribuição"
+            },
+            {
+                "tipo": "FC-11",
+                "descricao": "Objeto destruído com autorização do remetente"
+            },
+            {
+                "tipo": "FC-12",
+                "descricao": "Objeto encaminhado para fiscalização - ANVISA"
+            },
+            {
+                "tipo": "FC-13",
+                "descricao": "Fiscalizado ANATEL"
+            },
+            {
+                "tipo": "FC-14",
+                "descricao": "Impossibilidade de envio devido a embargos no exterior"
+            },
+            {
+                "tipo": "FC-15",
+                "descricao": "Objeto retido por abandono"
+            },
+            {
+                "tipo": "FC-17",
+                "descricao": "Objeto dispensado do pagamento de impostos"
+            },
+            {
+                "tipo": "FC-19",
+                "descricao": "Objeto encaminhado para fiscalização - ANATEL"
+            },
+            {
+                "tipo": "FC-23",
+                "descricao": "Entrega não realizada - motivo de força maior"
+            },
+            {
+                "tipo": "FC-24",
+                "descricao": "Em fiscalização pela Receita Federal"
+            },
+            {
+                "tipo": "FC-26",
+                "descricao": "Objeto aguardando retirada em unidade do correio de destino"
+            },
+            {
+                "tipo": "FC-27",
+                "descricao": "Objeto encaminhado para emissão de DSI"
+            },
+            {
+                "tipo": "FC-28",
+                "descricao": "Objeto liberado por decisão judicial"
+            },
+            {
+                "tipo": "FC-29",
+                "descricao": "Objeto encaminhado para apreensão"
+            },
+            {
+                "tipo": "FC-31",
+                "descricao": "Aguardando autorização para exportação"
+            },
+            {
+                "tipo": "FC-32",
+                "descricao": "Objeto encaminhado para fiscalização - INMETRO"
+            },
+            {
+                "tipo": "FC-33",
+                "descricao": "Objeto encaminhado para fiscalização - Polícia Federal"
+            },
+            {
+                "tipo": "FC-34",
+                "descricao": "Objeto encaminhado para fiscalização - VIGIAGRO"
+            },
+            {
+                "tipo": "FC-35",
+                "descricao": "Objeto encaminhado para fiscalização - Exército"
+            },
+            {
+                "tipo": "FC-36",
+                "descricao": "Objeto liberado de impostos por decisão judicial"
+            },
+            {
+                "tipo": "FC-37",
+                "descricao": "Objeto encaminhado para fiscalização - IBAMA"
+            },
+            {
+                "tipo": "FC-38",
+                "descricao": "Objeto retido por determinação judicial"
+            },
+            {
+                "tipo": "FC-39",
+                "descricao": "Objeto encaminhado para fiscalização - ANCINE"
+            },
+            {
+                "tipo": "FC-41",
+                "descricao": "Problemas na documentação do objeto"
+            },
+            {
+                "tipo": "FC-42",
+                "descricao": "Objeto contém produto não permitido"
+            },
+            {
+                "tipo": "FC-47",
+                "descricao": "Objeto será devolvido por solicitação do contratante/remetente"
+            },
+            {
+                "tipo": "FC-51",
+                "descricao": "Objeto roubado dos Correios"
+            },
+            {
+                "tipo": "FC-57",
+                "descricao": "Aguardando retirada em locker"
+            },
+            {
+                "tipo": "FC-58",
+                "descricao": "Objeto será entregue em instantes"
+            },
+            {
+                "tipo": "FC-59",
+                "descricao": "Pedido de confirmação de entrega de telegrama encaminhado para e-mail contratado"
+            },
+            {
+                "tipo": "FC-60",
+                "descricao": "O PEDIDO DE CONFIRMAÇÃO DE ENTREGA SERÁ GERADO E ENVIADO APÓS BAIXA DO TELEGRAMA"
+            },
+            {
+                "tipo": "FC-61",
+                "descricao": "Objeto coletado com problema de postagem"
+            },
+            {
+                "tipo": "FC-62",
+                "descricao": "Objeto com problema de postagem foi devolvido ao remetente"
+            },
+            {
+                "tipo": "FC-63",
+                "descricao": "Direcionado para entrega interna a pedido do cliente"
+            },
+            {
+                "tipo": "IDC-1",
+                "descricao": "Objeto não localizado"
+            },
+            {
+                "tipo": "IDC-2",
+                "descricao": "Objeto não localizado"
+            },
+            {
+                "tipo": "IDC-3",
+                "descricao": "Objeto não localizado"
+            },
+            {
+                "tipo": "IDC-4",
+                "descricao": "Objeto não localizado"
+            },
+            {
+                "tipo": "IDC-5",
+                "descricao": "Objeto não localizado"
+            },
+            {
+                "tipo": "IDC-6",
+                "descricao": "Objeto não localizado"
+            },
+            {
+                "tipo": "IDC-7",
+                "descricao": "Objeto não localizado"
+            },
+            {
+                "tipo": "LDE-0",
+                "descricao": "Objeto saiu para entrega ao remetente"
+            },
+            {
+                "tipo": "LDI-1",
+                "descricao": "Objeto aguardando retirada no endereço indicado"
+            },
+            {
+                "tipo": "LDI-2",
+                "descricao": "Objeto disponível para retirada em Caixa Postal"
+            },
+            {
+                "tipo": "LDI-3",
+                "descricao": "Objeto aguardando retirada no endereço indicado"
+            },
+            {
+                "tipo": "LDI-4",
+                "descricao": "Objeto aguardando retirada no endereço indicado"
+            },
+            {
+                "tipo": "LDI-11",
+                "descricao": "Objeto encaminhado para retirada no endereço indicado"
+            },
+            {
+                "tipo": "LDI-13",
+                "descricao": "Objeto encaminhado para retirada no endereço indicado"
+            },
+            {
+                "tipo": "LDI-14",
+                "descricao": "Objeto encaminhado para retirada no endereço indicado"
+            },
+            {
+                "tipo": "OEC-1",
+                "descricao": "Objeto saiu para entrega ao destinatário"
+            },
+            {
+                "tipo": "OEC-2",
+                "descricao": "Objeto saiu para entrega em locker"
+            },
+            {
+                "tipo": "OEC-3",
+                "descricao": "Objeto está em rota de entrega"
+            },
+            {
+                "tipo": "OEC-9",
+                "descricao": "Objeto saiu para entrega ao remetente"
+            },
+            {
+                "tipo": "PAR-2",
+                "descricao": "Objeto em trânsito"
+            },
+            {
+                "tipo": "PAR-3",
+                "descricao": "Objeto retido pela alfândega do país de destino"
+            },
+            {
+                "tipo": "PAR-4",
+                "descricao": "Objeto encaminhado para fiscalização aduaneira de exportação"
+            },
+            {
+                "tipo": "PAR-5",
+                "descricao": "Documentação insuficiente para análise do pedido de revisão"
+            },
+            {
+                "tipo": "PAR-6",
+                "descricao": "PAR 6"
+            },
+            {
+                "tipo": "PAR-7",
+                "descricao": "PAR 7"
+            },
+            {
+                "tipo": "PAR-8",
+                "descricao": "PAR 8"
+            },
+            {
+                "tipo": "PAR-9",
+                "descricao": "PAR 9"
+            },
+            {
+                "tipo": "PAR-10",
+                "descricao": "Fiscalização aduaneira finalizada"
+            },
+            {
+                "tipo": "PAR-11",
+                "descricao": "Aguardando pagamento de taxas no país de destino"
+            },
+            {
+                "tipo": "PAR-12",
+                "descricao": "Informações prestadas pelo cliente em análise"
+            },
+            {
+                "tipo": "PAR-13",
+                "descricao": "Objeto devolvido ao país de origem"
+            },
+            {
+                "tipo": "PAR-14",
+                "descricao": "Revisão de tributos solicitada pelo cliente"
+            },
+            {
+                "tipo": "PAR-15",
+                "descricao": "Objeto recebido em"
+            },
+            {
+                "tipo": "PAR-16",
+                "descricao": "Objeto recebido pelos Correios do Brasil"
+            },
+            {
+                "tipo": "PAR-17",
+                "descricao": "Aguardando pagamento"
+            },
+            {
+                "tipo": "PAR-18",
+                "descricao": "Objeto recebido na unidade de exportação no país de origem"
+            },
+            {
+                "tipo": "PAR-19",
+                "descricao": "Fiscalização aduaneira finalizada no país de destino"
+            },
+            {
+                "tipo": "PAR-20",
+                "descricao": "Objeto recebido pelos Correios do Brasil com embalagem danificada"
+            },
+            {
+                "tipo": "PAR-21",
+                "descricao": "Encaminhado para fiscalização aduaneira"
+            },
+            {
+                "tipo": "PAR-22",
+                "descricao": "Encaminhado para fiscalização no país de destino"
+            },
+            {
+                "tipo": "PAR-23",
+                "descricao": "Aguardando autorização da Receita Federal para devolução do objeto ao remetente"
+            },
+            {
+                "tipo": "PAR-24",
+                "descricao": "Devolução autorizada pela Receita Federal"
+            },
+            {
+                "tipo": "PAR-25",
+                "descricao": "Faltam informações. Sua ação é necessária"
+            },
+            {
+                "tipo": "PAR-26",
+                "descricao": "Destinatário recusou o objeto"
+            },
+            {
+                "tipo": "PAR-27",
+                "descricao": "Despacho Postal pago na origem"
+            },
+            {
+                "tipo": "PAR-28",
+                "descricao": "Encaminhado para a unidade de tratamento"
+            },
+            {
+                "tipo": "PAR-29",
+                "descricao": "Objeto não poderá ser entregue em domicílio"
+            },
+            {
+                "tipo": "PAR-30",
+                "descricao": "Aguardando pagamento do despacho postal"
+            },
+            {
+                "tipo": "PAR-31",
+                "descricao": "Pagamento confirmado"
+            },
+            {
+                "tipo": "PAR-32",
+                "descricao": "Aguardando confirmação de pagamento pela operadora"
+            },
+            {
+                "tipo": "PAR-33",
+                "descricao": "Pagamento não confirmado pela operadora"
+            },
+            {
+                "tipo": "PAR-34",
+                "descricao": "Liberado sem tributação"
+            },
+            {
+                "tipo": "PAR-40",
+                "descricao": "Devolução a pedido"
+            },
+            {
+                "tipo": "PAR-41",
+                "descricao": "Prazo de pagamento encerrado"
+            },
+            {
+                "tipo": "PAR-42",
+                "descricao": "Objeto liberado"
+            },
+            {
+                "tipo": "PMT-1",
+                "descricao": "Objeto encaminhado "
+            },
+            {
+                "tipo": "PO-1",
+                "descricao": "Objeto postado"
+            },
+            {
+                "tipo": "PO-9",
+                "descricao": "Objeto postado após o horário limite da unidade"
+            },
+            {
+                "tipo": "RO-0",
+                "descricao": "Objeto em trânsito - por favor aguarde"
+            },
+            {
+                "tipo": "RO-1",
+                "descricao": "Objeto em trânsito - por favor aguarde"
+            },
+            {
+                "tipo": "TRI-0",
+                "descricao": "Objeto encaminhado "
+            },
+            {
+                "tipo": "FC-68",
+                "descricao": "FC-68"
+            },
+            {
+                "tipo": "RO-2",
+                "descricao": "RO-2"
+            },
+            {
+                "tipo": "FC-82",
+                "descricao": "FC-82"
+            },
+            {
+                "tipo": "FC-83",
+                "descricao": "FC-83"
+            },
+            {
+                "tipo": "FC-84",
+                "descricao": "FC-84"
+            },
+            {
+                "tipo": "FC-85",
+                "descricao": "FC-85"
+            },
+            {
+                "tipo": "FC-93",
+                "descricao": "FC-93"
+            },
+            {
+                "tipo": "FC-66",
+                "descricao": "FC-66"
+            }
+        ],
+        "status": "A"
+    }
+]

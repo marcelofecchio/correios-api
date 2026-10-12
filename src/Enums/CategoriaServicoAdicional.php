@@ -18,28 +18,46 @@ use MarceloFecchio\Correios\Utilitarios\Texto;
  * $maoPropria = CategoriaServicoAdicional::MaoPropria->localizar($adicionais);   // null se o serviço não aceitar
  * ```
  *
- * Siglas da documentação: `VD` (resposta da API Preço) e `VDS` (rótulo do PAC) para valor declarado; `AR` e `MP` nos
- * campos `servico.ar` e `servico.mp` da API Rastro. A categoria de artigos perigosos é reconhecida só pelo nome
- * ("perigoso"), pois a documentação não traz a sigla.
+ * Confirmado em homologação (11/10/2026, SEDEX 03220, PAC 03298, SEDEX REVERSO 03247 e PAC REVERSO 03301):
+ * `001` AR, `021` EAR, `037` ARDIG, `002` MP, `019` VD (SEDEX), `064` VDS (PAC) e `095` AP ("ARTIGOS PERIGOSOS
+ * ANAC"). A sigla exata tem prioridade; sem ela, a categoria vem do nome.
  */
 enum CategoriaServicoAdicional: string
 {
+    /** AR convencional (`001`). */
     case AvisoRecebimento = 'AR';
+    case AvisoRecebimentoEletronico = 'EAR';
+    case AvisoRecebimentoDigital = 'ARDIG';
     case MaoPropria = 'MP';
     case ValorDeclarado = 'VD';
-    case ArtigosPerigosos = 'DGR';
+    case ArtigosPerigosos = 'AP';
 
     /** Categoria de um adicional devolvido pela API, ou null se não for nenhuma destas. */
     public static function de(ServicoAdicionalDisponivel $adicional): ?self
     {
         $sigla = strtoupper(trim((string) $adicional->sigla));
+        $porSigla = match ($sigla) {
+            'AR' => self::AvisoRecebimento,
+            'EAR' => self::AvisoRecebimentoEletronico,
+            'ARDIG' => self::AvisoRecebimentoDigital,
+            'MP' => self::MaoPropria,
+            'VD', 'VDS' => self::ValorDeclarado,
+            'AP', 'DGR' => self::ArtigosPerigosos,
+            default => null,
+        };
+        if ($porSigla !== null) {
+            return $porSigla;
+        }
+
         $nome = strtoupper(Texto::semAcentos((string) $adicional->nome));
 
         return match (true) {
-            str_starts_with($sigla, 'VD'), str_contains($nome, 'VALOR DECLARADO') => self::ValorDeclarado,
-            $sigla === 'MP', str_contains($nome, 'MAO PROPRIA') => self::MaoPropria,
-            $sigla === 'AR', str_contains($nome, 'AVISO DE RECEBIMENTO') => self::AvisoRecebimento,
-            $sigla === 'DGR', str_contains($nome, 'PERIGOS') => self::ArtigosPerigosos,
+            str_contains($nome, 'VALOR DECLARADO') => self::ValorDeclarado,
+            str_contains($nome, 'MAO PROPRIA') => self::MaoPropria,
+            str_contains($nome, 'AVISO DE RECEBIMENTO') && str_contains($nome, 'ELETRONICO') => self::AvisoRecebimentoEletronico,
+            str_contains($nome, 'AVISO DE RECEBIMENTO') && str_contains($nome, 'DIGITAL') => self::AvisoRecebimentoDigital,
+            str_contains($nome, 'AVISO DE RECEBIMENTO') => self::AvisoRecebimento,
+            str_contains($nome, 'PERIGOS') => self::ArtigosPerigosos,
             default => null,
         };
     }

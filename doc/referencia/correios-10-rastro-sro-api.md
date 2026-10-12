@@ -3619,7 +3619,7 @@ Resposta 200:
 2. **Rastrear um objeto:** `GET /v1/objetos/{codigoObjeto}?resultado=T` retorna o histórico completo. Para exibir só o status atual, use `resultado=U` (último evento) — resposta menor e mais rápida.
 3. **Rastrear vários objetos:** use `GET /v1/objetos` com até 50 códigos por chamada. Para listas maiores, divida em blocos de 50.
 4. **Validação do código:** antes de chamar a API, valide o formato (13 caracteres: 2 letras + 9 dígitos + 2 letras, ex.: `AA123456789BR`) e converta para maiúsculas.
-5. **Status do objeto:** cada item de `eventos` traz `codigo` (até 3 caracteres) + `tipo` (até 2 caracteres) + `descricao`. A combinação `codigo`+`tipo` identifica o evento; use `descricao` para exibir ao usuário e a combinação para regras (ex.: marcar como entregue). A tabela de códigos de evento não faz parte desta especificação — mapeie os códigos que sua aplicação precisa tratar a partir dos retornos reais.
+5. **Status do objeto:** cada item de `eventos` traz `codigo` (até 3 caracteres) + `tipo` (até 2 caracteres) + `descricao`. A combinação `codigo`+`tipo` identifica o evento; use `descricao` para exibir ao usuário e a combinação para regras (ex.: marcar como entregue). A tabela de códigos de evento não faz parte desta especificação. ✔ O catálogo oficial (376 eventos, do webhook de rastreamento) está em `correios-eventos-rastreio.md`, com a situação que o componente atribui a cada um.
 6. **Ordem dos eventos:** não assuma a ordem da lista; ordene por `dtHrCriado` quando precisar do mais recente.
 7. **Imagens de baixa (assíncrono):** `POST /v1/objetos/imagens` com a lista de códigos → resposta `202` com um `Recibo` (`numero`, `dtValidade`). Depois consulte `GET /v1/recibo/{numero}` até obter o resultado, respeitando a `dtValidade` do recibo e com intervalo entre as tentativas.
 8. **AR Digital:** `GET /v1/ar-digital?objetos=A,B` (máx. 10) retorna a imagem do AR quando existir — só se aplica a objetos postados com o serviço de AR Digital.
@@ -3629,3 +3629,8 @@ Resposta 200:
     - **Objeto não encontrado:** veio com **HTTP 200** e o objeto na lista `objetos` sem `eventos`, com o campo `mensagem` = `SRO-020: Não localizamos informações para o código informado. Verifique se o código foi digitado corretamente. ...`. Foi o caso do código de exemplo do manual (`DG049186226BR`). Trate `mensagem` como "não encontrado", não como erro HTTP.
     - **Objetos de pré-postagens de homologação** aparecem no rastreamento com eventos de captação: `Etiqueta emitida` (pré-postagem criada) e `Etiqueta cancelada pelo sistema de captação` (pré-postagem cancelada, inclusive a cancelada automaticamente pelos Correios).
     - `GET /v1/objetos?codigosObjetos=A&codigosObjetos=B&resultado=U` (parâmetro repetido) funcionou, devolvendo um item por código, inclusive o não encontrado.
+12. ✔ **Observado em homologação (12/10/2026, pela aplicação MARCELO ENVIOS):**
+    - Objetos recém-pré-postados têm um único evento, **`FC-82` "Etiqueta emitida"**, sem `dtPrevista`. No catálogo
+      oficial o `FC-82` vem sem descrição.
+    - Código de objeto fora do contrato volta **sem eventos** e com a mensagem "Objeto não pertence ao contrato" (não o
+      SRO-020 do item anterior). Falta confirmar em produção se a consulta alcança objetos de outros remetentes.

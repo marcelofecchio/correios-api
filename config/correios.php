@@ -75,4 +75,8 @@ return [
     ],
 
     'timeout' => env('CORREIOS_TIMEOUT', 30),
+
+    // Grava no log (DEBUG) o corpo das requisições e respostas. O corpo vai mascarado (token, documentos, nome,
+    // endereço, telefone, e-mail); false = só método, URL, status e duração.
+    'log_corpo' => env('CORREIOS_LOG_CORPO', true),
 ];

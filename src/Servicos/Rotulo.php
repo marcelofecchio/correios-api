@@ -6,20 +6,26 @@ namespace MarceloFecchio\Correios\Servicos;
 
 use MarceloFecchio\Correios\Dto\SolicitacaoRotulo;
 use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
+use MarceloFecchio\Correios\Excecoes\ErroRotuloEmGeracao;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
 use MarceloFecchio\Correios\Respostas\ArquivoRotulo;
 use MarceloFecchio\Correios\Respostas\ReciboRotulo;
+use MarceloFecchio\Correios\Respostas\TentativaRotulo;
 use MarceloFecchio\Correios\Token;
 
 /**
  * Rótulo oficial dos Correios em PDF, em dois passos: `solicitar()` → `baixar()`.
  *
- * Roteiro: confirme `statusAtual = 2` → solicitar → baixar. Se o download lançar `ErroPrePostagemPendente`
- * (PPN-288), o recibo ficou inválido: aguarde o status 2 e **solicite de novo**. O componente não espera nem
- * repete chamadas. O rótulo só pode ser emitido com as mesmas credenciais que criaram a pré-postagem.
+ * Roteiro: solicitar → baixar. O download pode responder (com HTTP 200):
+ * - **PPN-291** (`ErroRotuloEmGeracao`): o rótulo ainda está sendo gerado; o recibo vale, baixe de novo com ele;
+ * - **PPN-288** (`ErroPrePostagemPendente`): a pré-postagem estava PENDENTE; o recibo nunca mais funciona, solicite
+ *   outro quando ela chegar ao status 2.
  *
- * Pré-postagem síncrona: não há endpoint para consultar o status por id. Use `tentarObter()` a cada volta do job da
- * aplicação: o próprio download diz se a pré-postagem ainda está pendente.
+ * `obter()` faz uma tentativa e diz qual dos casos aconteceu. O componente não espera nem repete chamadas: a
+ * aplicação reagenda. O rótulo só pode ser emitido com as mesmas credenciais que criaram a pré-postagem.
+ *
+ * Pré-postagem síncrona: não há endpoint para consultar o status por id. O próprio download diz se ela ainda está
+ * pendente.
  */
 final class Rotulo extends Servico
 {
@@ -63,25 +69,46 @@ final class Rotulo extends Servico
     }
 
     /**
-     * Solicita e baixa o rótulo numa tentativa. Devolve null se a pré-postagem ainda estiver PENDENTE (PPN-288).
-     *
-     * Cada tentativa usa um recibo novo, como a API exige; o código do objeto não muda entre as solicitações. Não há
-     * espera nem repetição: chame de novo, depois de um intervalo, enquanto o retorno for null.
+     * Uma tentativa de obter o rótulo: solicita (se não houver recibo) e baixa.
      *
      * ```php
      * // job da aplicação, reagendado com intervalo crescente (5, 10, 30, 60, 120 s...)
-     * $arquivo = $correios->rotulo()->tentarObter($token, SolicitacaoRotulo::porIds([$id]));
-     * if ($arquivo === null) {
-     *     $this->release($proximoIntervalo);   // ainda pendente
+     * $tentativa = $correios->rotulo()->obter($token, SolicitacaoRotulo::porIds([$id]), $envio->recibo_rotulo);
+     * if (!$tentativa->pronto()) {
+     *     $envio->recibo_rotulo = $tentativa->reciboParaProximaTentativa()?->idRecibo;   // PPN-291 guarda, PPN-288 limpa
+     *     $this->release($proximoIntervalo);
+     *     return;
      * }
+     * $tentativa->arquivo->salvar($caminho);
      * ```
+     *
+     * @param ReciboRotulo|string|null $recibo recibo de uma tentativa anterior que voltou `EmGeracao`; null = solicitar um novo
+     */
+    public function obter(Token|string $token, SolicitacaoRotulo $solicitacao, ReciboRotulo|string|null $recibo = null): TentativaRotulo
+    {
+        $recibo = match (true) {
+            $recibo instanceof ReciboRotulo => $recibo,
+            $recibo === null || trim($recibo) === '' => $this->solicitar($token, $solicitacao),
+            default => new ReciboRotulo(trim($recibo)),
+        };
+
+        try {
+            return TentativaRotulo::comArquivo($this->baixar($token, $recibo), $recibo);
+        } catch (ErroRotuloEmGeracao) {
+            return TentativaRotulo::emGeracao($recibo);
+        } catch (ErroPrePostagemPendente) {
+            return TentativaRotulo::pendente();
+        }
+    }
+
+    /**
+     * Solicita e baixa o rótulo numa tentativa. Devolve null se ele ainda não estiver disponível (PPN-288 ou PPN-291).
+     *
+     * @deprecated desde 0.3.0: use `obter()`, que reaproveita o recibo no PPN-291 (rótulo em geração). Aqui cada
+     *             tentativa pede um recibo novo, e o download logo depois da solicitação costuma cair no PPN-291.
      */
     public function tentarObter(Token|string $token, SolicitacaoRotulo $solicitacao): ?ArquivoRotulo
     {
-        try {
-            return $this->baixar($token, $this->solicitar($token, $solicitacao));
-        } catch (ErroPrePostagemPendente) {
-            return null;
-        }
+        return $this->obter($token, $solicitacao)->arquivo;
     }
 }

@@ -40,9 +40,14 @@ jobs:
         include:
           - laravel: '12'
             testbench: '10'
+            guzzle: '7'
           - laravel: '13'
             testbench: '11'
-    name: Laravel ${{ matrix.laravel }}
+            guzzle: '7'
+          - laravel: '13'
+            testbench: '11'
+            guzzle: '8'
+    name: Laravel ${{ matrix.laravel }} + Guzzle ${{ matrix.guzzle }}
     steps:
       - uses: actions/checkout@v5
 
@@ -53,7 +58,7 @@ jobs:
           coverage: none
 
       - name: Instalar dependências
-        run: composer update --no-interaction --no-progress --prefer-dist --with "illuminate/support:^${{ matrix.laravel }}.0" --with "orchestra/testbench:^${{ matrix.testbench }}.0"
+        run: composer update --no-interaction --no-progress --prefer-dist --with "illuminate/support:^${{ matrix.laravel }}.0" --with "orchestra/testbench:^${{ matrix.testbench }}.0" --with "guzzlehttp/guzzle:^${{ matrix.guzzle }}.0"
 
       - name: Testes (Pest)
         run: vendor/bin/pest

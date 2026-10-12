@@ -1,7 +1,8 @@
 # Respostas às lacunas do levantamento do MARCELO ENVIOS
 
 Resposta, item a item, ao `correios-api-gaps.md` (Fase 0 do MARCELO ENVIOS, 11/10/2026). As mudanças saíram na versão
-**0.2.0** do pacote (ver `CHANGELOG.md`).
+**0.2.0** do pacote (ver `CHANGELOG.md`). A [segunda rodada](#segunda-rodada-12102026), sobre o levantamento revisado
+contra a 0.2.0, está no fim e vai na próxima versão (seção "Não lançado" do `CHANGELOG.md`).
 
 Situação: **resolvido** (o pacote passou a cobrir) · **parcial** (o pacote ajuda, mas falta dado dos Correios) ·
 **fora do pacote** (depende de teste real ou de documentação que não existe).
@@ -160,3 +161,96 @@ vendor/bin/pest --group=integracao
 ```
 
 No PHP desta máquina, acrescente `-d curl.cainfo=<pacote de certificados>` ao comando, como no relatório de entrega.
+
+## Segunda rodada (12/10/2026)
+
+Resposta ao `correios-api-gaps.md` revisado contra a v0.2.0, com os resultados da homologação do app e o catálogo de
+eventos de rastreio (`doc/lista-eventos-rastreio.txt`), agora em `doc/referencia/correios-eventos-rastreio.json`.
+
+| # | Lacuna | Situação no pacote | O que o app pode fazer |
+|---|---|---|---|
+| 8 | Situação do rastreamento | **resolvido** | Usar o catálogo do pacote e manter em `config/tracking.php` só o que difere |
+| 13 | Guzzle 8 | **resolvido** | Liberar `guzzlehttp/guzzle ^8` |
+| 14 | AR casa com 001, 021 e 037 | **resolvido** | Tirar a conferência da sigla `AR` |
+| 15 | Corpo das chamadas no log | **resolvido** | Manter o `CarrierApiLogger` ou passar `log_corpo => false` |
+| 16 | PPN-291 no `tentarObter()` | **resolvido** | Trocar `solicitar()`/`baixar()` por `rotulo()->obter()` |
+| 2, 3, 9 | Resultados da homologação | **registrados** | Nada |
+| 7, 10 | Limites por serviço, DataMatrix | sem mudança | Nada |
+
+### 8. Situação do rastreamento
+
+- **Catálogo embutido:** `Rastreamento\CatalogoEventos` traz os 376 eventos do arquivo do app, com a descrição oficial
+  e uma situação para cada um. Os critérios e a tabela completa estão em
+  `doc/referencia/correios-eventos-rastreio.md`. Um teste garante que o catálogo bate com o JSON.
+- **Casos novos:** `SituacaoRastreamento::AguardandoPostagem` (`FC-82` "Etiqueta emitida", `CO-2`, `CO-3`, `CO-14`)
+  e `EmDevolucao` (`BDx-5/33/49/62`, `FC-1`, `FC-47`, `LDE-0`, `OEC-9`...). Também `emPosseDosCorreios()`, como o
+  `isMoving()` do app.
+- **Correção EST:** `Rastreamento::ultimoEventoValido()` pula cada `EST` e o evento que ele anula; `situacao()` usa
+  esse evento. `EventoRastreamento::anulaAnterior()` diz se o evento é um `EST`. `eventosRecentesPrimeiro()` ordena
+  pela data.
+- **Correspondência com o `DeliveryStatus` do app:** os casos têm o mesmo significado (`AwaitingPosting` =
+  `AguardandoPostagem`, `Returning` = `EmDevolucao` etc.). A classificação segue a do `config/tracking.php`, com
+  estas diferenças: `CO-14` (e-ticket) é `AguardandoPostagem`; `PAR-24` e `PAR-40` são `EmDevolucao`; `PAR-13` é
+  `Devolvido`; `PAR-5`, `-11`, `-17`, `-23`, `-30` e `-41` (pagamento ou documentação pendente) são `Problema`.
+  Eventos sem descrição no catálogo (`FC-66`, `RO-2`...) são `Desconhecida`, e não "em trânsito"; o app pode
+  mantê-los como "em trânsito" pelo mapa.
+
+```php
+$situacao = $rastreamento->situacao(config('tracking.correios_events_overrides', []));
+```
+
+### 13. Guzzle 8
+
+`require-dev` aceita `guzzlehttp/guzzle ^7.9 || ^8.0`, e o CI testa Laravel 12 com Guzzle 7 e Laravel 13 com Guzzle
+7 e 8 (o Laravel 12 exige Guzzle 7). A suíte passou com Guzzle 8.2.0, inclusive o teste que cria o cliente com
+`timeout`.
+
+### 14. Categoria de aviso de recebimento
+
+Categorias novas `AvisoRecebimentoEletronico` (`EAR`, 021) e `AvisoRecebimentoDigital` (`ARDIG`, 037). A sigla
+exata tem prioridade sobre o nome; sem sigla, "AVISO DE RECEBIMENTO" com "ELETRONICO" ou "DIGITAL" vai para a
+categoria certa. `AvisoRecebimento->localizar()` devolve o 001 mesmo que ele não venha primeiro. A sigla `AP` (095,
+"ARTIGOS PERIGOSOS ANAC") também passou a ser reconhecida. O valor de `ArtigosPerigosos` mudou de `DGR` para `AP`;
+o app usa só o nome do caso, então nada muda para ele.
+
+### 15. Corpo das chamadas no log
+
+- Dentro de `remetente`, `destinatario`, `recebedor` e `entregadorExterno`, só ficam CEP, cidade, UF, país e região;
+  nome, logradouro, número, complemento, bairro, telefones e e-mail viram `***`. E-mail, telefones, latitude,
+  longitude, comentário e `obs` viram `***` em qualquer lugar. Continuam como antes: token, Basic Auth, CPF/CNPJ e
+  Base64.
+- Nova opção `logarCorpo` (`'log_corpo' => false`, `CORREIOS_LOG_CORPO=false`): o log fica só com método, URL,
+  status e duração. O `CarrierApiLogger` do app continua válido; com a opção, ele nem chega a receber o corpo.
+
+### 16. PPN-291
+
+- `ErroRotuloEmGeracao` (PPN-291), subclasse de `ErroApi`, com `idRecibo()` lido da mensagem.
+- `rotulo()->obter($token, $solicitacao, $recibo = null): TentativaRotulo`: sem recibo, solicita; depois baixa. A
+  situação (`SituacaoRotulo`) é `Pronto` (com o PDF), `EmGeracao` (o recibo vai em `reciboParaProximaTentativa()`)
+  ou `Pendente` (o recibo é descartado). É o fluxo do `getLabel()` do app:
+
+```php
+$tentativa = $correios->rotulo()->obter($token, SolicitacaoRotulo::porIds([$shipment->prepostagem_id]), $shipment->label_receipt);
+$shipment->label_receipt = $tentativa->reciboParaProximaTentativa()?->idRecibo;
+if (!$tentativa->pronto()) {
+    $this->release($proximoIntervalo);
+    return;
+}
+```
+
+- `tentarObter()` ficou obsoleto. Ele não lança mais `ErroApi` no PPN-291, mas pede um recibo novo a cada chamada.
+
+### 2, 3 e 9. Resultados da homologação registrados
+
+README e documentos de referência 09 e 10 agora registram:
+- o PDF do rótulo imprime a `observacao`;
+- o rótulo `PADRAO` e a DACE completa foram obtidos;
+- os códigos `002` MP e `095` AP em SEDEX, PAC e reversos;
+- o `FC-82` "Etiqueta emitida";
+- a mensagem "Objeto não pertence ao contrato".
+
+O `Linear100x150` continua sem teste.
+
+### 7 e 10
+
+Sem mudança. Os limites por serviço continuam fora da documentação, e o DataMatrix só se confirma com impressão real.

@@ -4,45 +4,46 @@ declare(strict_types=1);
 
 namespace MarceloFecchio\Correios\Enums;
 
+use MarceloFecchio\Correios\Rastreamento\CatalogoEventos;
+
 /**
  * Situação de um objeto a partir do evento de rastreamento (`codigo` + `tipo`).
  *
- * A tabela oficial de eventos **não faz parte da especificação** da API Rastro. A tabela padrão traz só os eventos
- * confirmados no exemplo do manual de integração V2.4 (`PO-01`, `RO-01`, `OEC-03`, `BDE-01`). O significado de um
- * código muda com o `tipo` (ex.: `BDE` com outro tipo não é entrega), por isso a tabela padrão exige os dois.
+ * A tabela padrão é o catálogo oficial de eventos (`CatalogoEventos`, 376 eventos), com os critérios em
+ * `doc/referencia/correios-eventos-rastreio.md`. O tipo muda o significado do código (`BDE-1` é entrega, `BDE-20` é
+ * "carteiro não atendido"), por isso o catálogo exige os dois.
  *
- * A aplicação completa a tabela com os eventos que já viu, e as entradas dela têm prioridade. Chaves aceitas:
- * `'BDE-01'` (código e tipo; `'BDE-1'` também vale) ou `'BDE'` (qualquer tipo).
+ * A aplicação pode trocar ou completar a tabela, e as entradas dela têm prioridade. Chaves aceitas: `'BDE-01'`
+ * (código e tipo; `'BDE-1'` também vale) ou `'BDE'` (qualquer tipo).
  *
  * ```php
- * $mapa = ['LDI-01' => SituacaoRastreamento::AguardandoRetirada, 'BDE-20' => SituacaoRastreamento::Problema];
+ * $mapa = ['BDE-20' => SituacaoRastreamento::EmTransito];   // ex.: tratar "carteiro não atendido" como andamento
  * $situacao = $rastreamento->situacao($mapa);
  * ```
  */
 enum SituacaoRastreamento: string
 {
+    /** Etiqueta emitida (`FC-82`) ou coleta ainda não feita: o objeto ainda não está com os Correios. */
+    case AguardandoPostagem = 'aguardando_postagem';
     case Postado = 'postado';
     case EmTransito = 'em_transito';
     case SaiuParaEntrega = 'saiu_para_entrega';
-    case Entregue = 'entregue';
     case AguardandoRetirada = 'aguardando_retirada';
+    case Entregue = 'entregue';
+
+    /** Voltando ao remetente. Ao chegar a ele, `Devolvido`. */
+    case EmDevolucao = 'em_devolucao';
     case Devolvido = 'devolvido';
+
+    /** Entrega sem sucesso, retenção, fiscalização, extravio, pagamento pendente: pede atenção. */
     case Problema = 'problema';
     case Cancelado = 'cancelado';
 
-    /** Evento fora da tabela: a aplicação decide como exibir (a `descricao` do evento continua disponível). */
+    /** Evento fora do catálogo, sem descrição ou `EST`: a aplicação decide como exibir (a `descricao` continua disponível). */
     case Desconhecida = 'desconhecida';
 
-    /** Eventos confirmados na documentação (manual de integração V2.4, exemplo da API Rastro). */
-    private const array TABELA_PADRAO = [
-        'PO-1' => self::Postado,
-        'RO-1' => self::EmTransito,
-        'OEC-3' => self::SaiuParaEntrega,
-        'BDE-1' => self::Entregue,
-    ];
-
     /**
-     * @param array<string, self> $mapa eventos da aplicação (`'CODIGO-TIPO'` ou `'CODIGO'`), com prioridade sobre a tabela padrão
+     * @param array<string, self> $mapa eventos da aplicação (`'CODIGO-TIPO'` ou `'CODIGO'`), com prioridade sobre o catálogo
      */
     public static function doEvento(?string $codigo, ?string $tipo, array $mapa = []): self
     {
@@ -53,12 +54,13 @@ enum SituacaoRastreamento: string
 
         $mapaNormalizado = [];
         foreach ($mapa as $chave => $situacao) {
-            $mapaNormalizado[self::chave(...explode('-', (string) $chave, 2))] = $situacao;
+            $mapaNormalizado[CatalogoEventos::chave((string) $chave)] = $situacao;
         }
 
-        $completa = self::chave($codigo, $tipo);
-
-        return $mapaNormalizado[$completa] ?? $mapaNormalizado[$codigo] ?? self::TABELA_PADRAO[$completa] ?? self::Desconhecida;
+        return $mapaNormalizado[CatalogoEventos::chave($codigo, $tipo)]
+            ?? $mapaNormalizado[$codigo]
+            ?? CatalogoEventos::situacao($codigo, $tipo)
+            ?? self::Desconhecida;
     }
 
     /** Situação final: o objeto não deve mais mudar (entregue, devolvido ou cancelado). */
@@ -67,15 +69,9 @@ enum SituacaoRastreamento: string
         return in_array($this, [self::Entregue, self::Devolvido, self::Cancelado], true);
     }
 
-    /** `BDE-01` e `BDE-1` geram a mesma chave; sem tipo, só o código. */
-    private static function chave(string $codigo, ?string $tipo = null): string
+    /** O objeto já está com os Correios (houve postagem ou coleta). */
+    public function emPosseDosCorreios(): bool
     {
-        $codigo = strtoupper(trim($codigo));
-        $tipo = trim((string) $tipo);
-        if ($tipo === '') {
-            return $codigo;
-        }
-
-        return $codigo . '-' . (ctype_digit($tipo) ? (string) (int) $tipo : strtoupper($tipo));
+        return !in_array($this, [self::AguardandoPostagem, self::Cancelado, self::Desconhecida], true);
     }
 }

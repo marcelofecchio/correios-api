@@ -9,6 +9,7 @@ use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroAutenticacao;
 use MarceloFecchio\Correios\Excecoes\ErroLimiteRequisicoes;
 use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
+use MarceloFecchio\Correios\Excecoes\ErroRotuloEmGeracao;
 
 /**
  * Converte uma resposta de erro na exceção adequada.
@@ -21,6 +22,7 @@ use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
 final class TratadorErros
 {
     private const string CODIGO_PENDENTE = 'PPN-288';
+    private const string CODIGO_EM_GERACAO = 'PPN-291';
 
     private function __construct() {}
 
@@ -43,6 +45,14 @@ final class TratadorErros
         return match (true) {
             $codigo === self::CODIGO_PENDENTE => new ErroPrePostagemPendente(
                 $texto . ' Aguarde a pré-postagem chegar ao status 2 (PREPOSTADO) e solicite o rótulo de novo: este recibo não volta a funcionar.',
+                $resposta->status,
+                $mensagens,
+                $codigo,
+                $causa,
+                $bruto,
+            ),
+            $codigo === self::CODIGO_EM_GERACAO => new ErroRotuloEmGeracao(
+                $texto . ' O rótulo ainda está sendo gerado: baixe de novo com o mesmo recibo daqui a alguns segundos.',
                 $resposta->status,
                 $mensagens,
                 $codigo,

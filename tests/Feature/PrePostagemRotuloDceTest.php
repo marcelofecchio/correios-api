@@ -12,6 +12,7 @@ use MarceloFecchio\Correios\Enums\FormatoObjeto;
 use MarceloFecchio\Correios\Enums\LayoutImpressao;
 use MarceloFecchio\Correios\Enums\ModalidadePagamento;
 use MarceloFecchio\Correios\Enums\SituacaoProcessamento;
+use MarceloFecchio\Correios\Enums\SituacaoRotulo;
 use MarceloFecchio\Correios\Enums\StatusPrePostagem;
 use MarceloFecchio\Correios\Enums\TipoDace;
 use MarceloFecchio\Correios\Enums\TipoRotulo;
@@ -19,6 +20,7 @@ use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroConfiguracao;
 use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
+use MarceloFecchio\Correios\Respostas\ReciboRotulo;
 
 function novaPrePostagemSedex(array $alterar = []): NovaPrePostagem
 {
@@ -346,6 +348,43 @@ describe('Rótulo oficial', function (): void {
 
         correiosTeste($cliente)->rotulo()->tentarObter(tokenTeste(), SolicitacaoRotulo::porIds(['PR1']));
     })->throws(ErroApi::class, 'outro erro');
+
+    it('obter guarda o recibo no PPN-291 e baixa com ele na tentativa seguinte, sem nova solicitação', function (): void {
+        $emGeracao = ['mensagem' => 'PPN-291: O rótulo ainda não foi gerado. Por favor, consulte novamente. idRecibo: 0bf495ce83074e1ab495ce83073e1a261002'];
+        $cliente = clienteMock(respostaFixture(200, 'rotulo_recibo.json'), respostaJson(200, $emGeracao), respostaFixture(200, 'rotulo_download.json'));
+        $rotulo = correiosTeste($cliente)->rotulo();
+        $solicitacao = SolicitacaoRotulo::porIds(['PR1']);
+
+        $primeira = $rotulo->obter(tokenTeste(), $solicitacao);
+        $segunda = $rotulo->obter(tokenTeste(), $solicitacao, $primeira->reciboParaProximaTentativa()?->idRecibo);
+
+        expect($primeira->situacao)->toBe(SituacaoRotulo::EmGeracao)
+            ->and($primeira->pronto())->toBeFalse()
+            ->and($primeira->arquivo)->toBeNull()
+            ->and($primeira->reciboParaProximaTentativa()?->idRecibo)->toBe('0bf495ce83074e1ab495ce83073e1a261002')
+            ->and($segunda->pronto())->toBeTrue()
+            ->and($segunda->arquivo?->conteudoBinario())->toStartWith('%PDF')
+            ->and($segunda->recibo?->idRecibo)->toBe('0bf495ce83074e1ab495ce83073e1a261002')
+            ->and($segunda->reciboParaProximaTentativa())->toBeNull()
+            ->and(array_map(fn($r) => $r->getMethod(), $cliente->getRequests()))->toBe(['POST', 'GET', 'GET']);
+    });
+
+    it('obter descarta o recibo no PPN-288 e aceita o recibo como objeto', function (): void {
+        $cliente = clienteMock(respostaFixture(200, 'erro_ppn288.json'));
+        $tentativa = correiosTeste($cliente)->rotulo()->obter(tokenTeste(), SolicitacaoRotulo::porIds(['PR1']), new ReciboRotulo('f479b6af'));
+
+        expect($tentativa->situacao)->toBe(SituacaoRotulo::Pendente)
+            ->and($tentativa->recibo)->toBeNull()
+            ->and($tentativa->reciboParaProximaTentativa())->toBeNull()
+            ->and(ultimaRequisicao($cliente)->getUri()->getPath())->toEndWith('/download/assincrono/f479b6af')
+            ->and($cliente->getRequests())->toHaveCount(1);
+    });
+
+    it('tentarObter devolve null também no PPN-291', function (): void {
+        $cliente = clienteMock(respostaFixture(200, 'rotulo_recibo.json'), respostaJson(200, ['mensagem' => 'PPN-291: O rótulo ainda não foi gerado.']));
+
+        expect(correiosTeste($cliente)->rotulo()->tentarObter(tokenTeste(), SolicitacaoRotulo::porIds(['PR1'])))->toBeNull();
+    });
 
     it('trata mensagem de erro com HTTP 200 também na solicitação do rótulo e na DACE', function (): void {
         $erro = ['msgs' => ['Pré-postagem não encontrada.']];

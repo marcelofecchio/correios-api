@@ -118,6 +118,22 @@ Pré-postagem criada pela via **assíncrona** (`POST /v1/prepostagens/assincrona
 - ✔ **Confirmado:** o `idRecibo` obtido enquanto a pré-postagem estava em `7` **fica inutilizado** — mesmo depois de o status mudar para `2`, o download com esse recibo não funciona. É preciso fazer **nova** solicitação (`POST /v1/prepostagens/rotulo/assincrono/pdf`) já com `statusAtual = 2`, e baixar com o **novo** `idRecibo`.
 - Regra prática: só solicite o rótulo quando `statusAtual` for `2`. Se o download retornar PPN-288, descarte aquele `idRecibo`, aguarde o status `2` e solicite o rótulo de novo. O tempo de transição não é documentado (no teste de 27/09/2026, alguns minutos). ✔ Em 04/10/2026 as pré-postagens pendentes de teste não chegaram ao status 2: foram canceladas automaticamente pelos Correios minutos depois (ver arquivo 07, seção 7, item 11).
 
+#### Erro PPN-291 — rótulo ainda em geração — ✔ Observado em homologação (11/10/2026)
+
+Observado pela aplicação MARCELO ENVIOS numa pré-postagem síncrona de SEDEX: a solicitação foi aceita, mas o download
+feito logo em seguida respondeu **HTTP 200** com:
+
+```json
+{"mensagem": "PPN-291: O rótulo ainda não foi gerado. Por favor, consulte novamente. idRecibo: ..."}
+```
+
+- Diferente do PPN-288, **o recibo continua válido**: baixando de novo alguns segundos depois, com o mesmo recibo,
+  o PDF veio. Não peça outro recibo.
+- No componente: `baixar()` lança `ErroRotuloEmGeracao` (com `idRecibo()`), e `rotulo()->obter()` devolve a
+  situação `EmGeracao` com o recibo para a próxima tentativa.
+- Na mesma rotina foram obtidos o rótulo PDF (layout `PADRAO`) e a DACE completa, e o PDF **imprime o campo
+  `observacao`** da pré-postagem.
+
 #### Pontos ainda não observados
 
 - Resposta quando o arquivo **ainda está em processamento** (recibo válido, PDF não pronto) — trate como na seção 5, item 3.

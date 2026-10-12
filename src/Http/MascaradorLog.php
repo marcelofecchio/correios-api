@@ -9,6 +9,9 @@ namespace MarceloFecchio\Correios\Http;
  *
  * - token e credenciais: substituídos por `***`;
  * - CPF/CNPJ e documentos: só os 2 últimos dígitos ficam visíveis;
+ * - dados pessoais: dentro de `remetente`, `destinatario`, `recebedor` e `entregadorExterno` só ficam CEP, cidade,
+ *   UF, país e região (nome, endereço, telefones e e-mail viram `***`); e-mail, telefones, coordenadas, comentários e
+ *   observações do destinatário viram `***` em qualquer lugar;
  * - conteúdo Base64 de rótulos e DACE (`dados`): omitido, fica só o tamanho.
  *
  * @internal
@@ -18,6 +21,9 @@ final class MascaradorLog
     private const array CHAVES_SEGREDO = ['token', 'codigoacesso', 'codigo_acesso', 'senha', 'password', 'authorization'];
     private const array CHAVES_DOCUMENTO = ['cpfcnpj', 'cpf', 'cnpj', 'documento', 'numeroexternocliente', 'usuario'];
     private const array CHAVES_CONTEUDO = ['dados'];
+    private const array CHAVES_PESSOA = ['remetente', 'destinatario', 'recebedor', 'entregadorexterno'];
+    private const array CHAVES_PESSOAIS = ['email', 'telefone', 'celular', 'dddtelefone', 'dddcelular', 'telefones', 'latitude', 'longitude', 'comentario', 'obs', 'entregador', 'carteiro'];
+    private const array CHAVES_LOCALIDADE = ['cep', 'cidade', 'uf', 'pais', 'regiao'];
 
     private function __construct() {}
 
@@ -36,16 +42,19 @@ final class MascaradorLog
      *
      * @return array<mixed>
      */
-    public static function array(array $dados): array
+    public static function array(array $dados, bool $pessoa = false): array
     {
         $resultado = [];
         foreach ($dados as $chave => $valor) {
             $nome = strtolower((string) $chave);
             $resultado[$chave] = match (true) {
                 in_array($nome, self::CHAVES_SEGREDO, true) => '***',
+                in_array($nome, self::CHAVES_PESSOAIS, true) && $valor !== null => '***',
+                in_array($nome, self::CHAVES_PESSOA, true) && is_array($valor) => self::array($valor, true),
                 in_array($nome, self::CHAVES_CONTEUDO, true) && is_string($valor) => sprintf('[omitido: %d caracteres]', strlen($valor)),
                 in_array($nome, self::CHAVES_DOCUMENTO, true) && is_scalar($valor) => self::documento((string) $valor),
-                is_array($valor) => self::array($valor),
+                is_array($valor) => self::array($valor, $pessoa),
+                $pessoa && is_string($chave) && !in_array($nome, self::CHAVES_LOCALIDADE, true) && is_scalar($valor) => '***',
                 is_string($valor) => self::texto($valor),
                 default => $valor,
             };

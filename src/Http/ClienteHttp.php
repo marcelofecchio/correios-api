@@ -92,7 +92,7 @@ final class ClienteHttp
         $this->logger?->debug('Correios → {metodo} {url}', [
             'metodo' => $requisicao->metodo,
             'url' => MascaradorLog::texto($url),
-            'corpo' => $corpo !== '' ? MascaradorLog::corpo($corpo) : null,
+            'corpo' => $corpo !== '' && $this->configuracao->logarCorpo ? MascaradorLog::corpo($corpo) : null,
         ]);
 
         $inicio = microtime(true);
@@ -119,7 +119,7 @@ final class ClienteHttp
             'metodo' => $requisicao->metodo,
             'url' => MascaradorLog::texto($url),
             'ms' => (int) round((microtime(true) - $inicio) * 1000),
-            'corpo' => MascaradorLog::corpo($resposta->corpo),
+            'corpo' => $this->configuracao->logarCorpo ? MascaradorLog::corpo($resposta->corpo) : null,
         ]);
 
         return $resposta;

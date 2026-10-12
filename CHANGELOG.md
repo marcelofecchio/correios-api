@@ -5,6 +5,42 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+Segunda rodada de lacunas do MARCELO ENVIOS (12/10/2026), com os resultados da homologação do app.
+
+### Adicionado
+
+- Catálogo oficial dos eventos de rastreamento (`Rastreamento\CatalogoEventos`, 376 eventos do webhook `wh-rastro`),
+  com descrição e situação de cada um. Fonte em `doc/referencia/correios-eventos-rastreio.json` e tabela comentada em
+  `doc/referencia/correios-eventos-rastreio.md`.
+- `SituacaoRastreamento::AguardandoPostagem` (`FC-82` "Etiqueta emitida", coleta não feita), `EmDevolucao` e
+  `emPosseDosCorreios()`.
+- Correção `EST` ("Favor desconsiderar a informação anterior"): `Rastreamento::ultimoEventoValido()`,
+  `eventosRecentesPrimeiro()` e `EventoRastreamento::anulaAnterior()`.
+- PPN-291 (rótulo ainda em geração): `ErroRotuloEmGeracao`, com `idRecibo()`.
+- `rotulo()->obter($token, $solicitacao, $recibo = null): TentativaRotulo`, com `SituacaoRotulo` (`Pronto`,
+  `EmGeracao`, `Pendente`): reaproveita o recibo no PPN-291 e descarta no PPN-288.
+- `CategoriaServicoAdicional::AvisoRecebimentoEletronico` (`EAR`) e `AvisoRecebimentoDigital` (`ARDIG`).
+- Opção `logarCorpo` na `Configuracao` (`log_corpo`, `CORREIOS_LOG_CORPO`): sem corpo no log.
+- Guzzle 8 no `require-dev` e na matriz do CI (Laravel 13 com Guzzle 7 e 8).
+
+### Alterado
+
+- `SituacaoRastreamento::doEvento()` usa o catálogo oficial no lugar da tabela de 4 eventos do manual. Eventos que
+  antes eram `Desconhecida` agora têm situação (ex.: `BDE-20` é `Problema`).
+- `CategoriaServicoAdicional::de()` dá prioridade à sigla exata; o AR convencional (001) não casa mais com o
+  eletrônico (021) e o digital (037). A sigla `AP` (095) passou a ser reconhecida, e o valor do caso
+  `ArtigosPerigosos` mudou de `DGR` para `AP`.
+- O log mascara nome, endereço (menos CEP, cidade e UF), telefones e e-mail de remetente, destinatário e recebedor,
+  além de coordenadas, comentários e `obs`.
+- `tentarObter()` devolve `null` também no PPN-291, em vez de lançar `ErroApi`.
+- README e documentos de referência 09 e 10 registram o observado em homologação: PPN-291, `observacao` impressa no
+  rótulo PDF, rótulo `PADRAO` e DACE completa obtidos, adicionais `002` MP e `095` AP, `FC-82` e "Objeto não
+  pertence ao contrato".
+
+### Obsoleto
+
+- `rotulo()->tentarObter()`: use `obter()`.
+
 ### Removido
 
 - Laravel 11 da matriz do CI e do `require-dev` (`illuminate/support ^12.0 || ^13.0`, `orchestra/testbench ^10.0 ||

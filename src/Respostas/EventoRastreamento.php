@@ -6,6 +6,7 @@ namespace MarceloFecchio\Correios\Respostas;
 
 use DateTimeImmutable;
 use MarceloFecchio\Correios\Enums\SituacaoRastreamento;
+use MarceloFecchio\Correios\Rastreamento\CatalogoEventos;
 
 /**
  * Evento de rastreamento. A combinação `codigo` + `tipo` identifica o evento; use `descricao` para exibir e
@@ -32,12 +33,18 @@ final readonly class EventoRastreamento extends Resposta
     }
 
     /**
-     * Situação pelo `codigo` + `tipo`. Ver `SituacaoRastreamento` para a tabela padrão e o formato de `$mapa`.
+     * Situação pelo `codigo` + `tipo` no catálogo oficial. Ver `SituacaoRastreamento` para o formato de `$mapa`.
      *
-     * @param array<string, SituacaoRastreamento> $mapa eventos da aplicação, com prioridade sobre a tabela padrão
+     * @param array<string, SituacaoRastreamento> $mapa eventos da aplicação, com prioridade sobre o catálogo
      */
     public function situacao(array $mapa = []): SituacaoRastreamento
     {
         return SituacaoRastreamento::doEvento($this->codigo, $this->tipo, $mapa);
+    }
+
+    /** `EST` ("Favor desconsiderar a informação anterior"): este evento anula o anterior. */
+    public function anulaAnterior(): bool
+    {
+        return CatalogoEventos::anulaAnterior($this->codigo);
     }
 }

@@ -35,6 +35,8 @@ final readonly class Configuracao
      * @param array<string, string> $servicos apelido → código do serviço (ex.: `['sedex' => '03220']`)
      * @param float                 $timeout  segundos (aplicado quando o componente cria o cliente Guzzle)
      * @param ?string               $urlBase  sobrescreve o host do ambiente (útil em testes)
+     * @param bool                  $logarCorpo grava no log (DEBUG) o corpo das requisições e respostas, já mascarado;
+     *                                          false = só método, URL, status e duração
      */
     public function __construct(
         public Ambiente $ambiente,
@@ -49,6 +51,7 @@ final readonly class Configuracao
         ?ConfiguracaoEtiquetas $etiquetas = null,
         public float $timeout = 30.0,
         ?string $urlBase = null,
+        public bool $logarCorpo = true,
     ) {
         $this->usuario = trim($usuario);
         if ($this->usuario === '') {
@@ -108,7 +111,8 @@ final readonly class Configuracao
      * Monta a configuração a partir de um array (ex.: o `config/correios.php` do Laravel).
      *
      * Chaves (snake_case ou camelCase): `ambiente`, `usuario`, `codigo_acesso`, `cnpj`, `cartao_postagem`,
-     * `contrato`, `diretoria_regional`, `servicos`, `remetente_padrao`, `etiquetas`, `timeout`, `url_base`.
+     * `contrato`, `diretoria_regional`, `servicos`, `remetente_padrao`, `etiquetas`, `timeout`, `url_base`,
+     * `log_corpo`.
      *
      * @param array<mixed> $config
      */
@@ -182,6 +186,14 @@ final readonly class Configuracao
             throw new ErroConfiguracao('Configuração inválida: "timeout" deve ser um número de segundos.');
         }
 
+        $logarCorpo = $valor('logarCorpo', 'log_corpo');
+        if ($logarCorpo !== null && !is_bool($logarCorpo)) {
+            $logarCorpo = is_scalar($logarCorpo) ? filter_var($logarCorpo, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+            if ($logarCorpo === null) {
+                throw new ErroConfiguracao('Configuração inválida: "log_corpo" deve ser verdadeiro ou falso.');
+            }
+        }
+
         return new self(
             ambiente: $ambiente,
             usuario: (string) $texto('usuario', 'usuario', true),
@@ -195,6 +207,7 @@ final readonly class Configuracao
             etiquetas: $etiquetas,
             timeout: $timeout !== null ? (float) $timeout : 30.0,
             urlBase: $texto('urlBase', 'url_base', false),
+            logarCorpo: $logarCorpo ?? true,
         );
     }
 

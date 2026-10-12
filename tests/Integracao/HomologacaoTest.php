@@ -211,7 +211,13 @@ it('11 tenta obter o rótulo linear 100x150 com observação e cancela', functio
     );
 
     $criada = $correios?->prePostagem()->criar($token, $nova);
-    $arquivo = $correios?->rotulo()->tentarObter($token, SolicitacaoRotulo::porIds([$criada?->id ?? ''], layoutImpressao: LayoutImpressao::Linear100x150));
+    $solicitacao = SolicitacaoRotulo::porIds([$criada?->id ?? ''], layoutImpressao: LayoutImpressao::Linear100x150);
+    $tentativa = $correios?->rotulo()->obter($token, $solicitacao);
+    if ($tentativa?->situacao === MarceloFecchio\Correios\Enums\SituacaoRotulo::EmGeracao) {
+        sleep(5);   // só no teste: na aplicação, um job reagendado
+        $tentativa = $correios?->rotulo()->obter($token, $solicitacao, $tentativa->recibo);
+    }
+    $arquivo = $tentativa?->arquivo;
     if ($arquivo !== null) {
         gravarRelatorioHomologacao('rotulo-linear-100x150.pdf', $arquivo->conteudoBinario());
     }

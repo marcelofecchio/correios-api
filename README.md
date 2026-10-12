@@ -24,7 +24,7 @@ Componente PHP para a **API REST dos Correios (CWS – Correios Web Services)** 
 ## Requisitos
 
 - PHP **8.4** com as extensões `dom`, `json`, `libxml` e `mbstring`.
-- Um cliente HTTP **PSR-18** e fábricas **PSR-17** (recomendado: Guzzle 7 ou superior). Sem nenhum instalado, o componente
+- Um cliente HTTP **PSR-18** e fábricas **PSR-17** (recomendado: Guzzle 7 ou 8). Sem nenhum instalado, o componente
   avisa com `ErroConfiguracao`.
 - Opcional: `ext-gd` e `ext-zlib` só para converter imagens em `^GFA` (`Etiquetas\ImagemZpl`).
 - Opcional: Laravel 12 ou 13 para o ServiceProvider e a Facade.
@@ -227,9 +227,9 @@ $nova = new NovaPrePostagem(
 );
 $criada = $correios->prePostagem()->criar($token, $nova);
 
-// solicita e baixa; null = ainda PENDENTE (status 7): tente de novo mais tarde (ver "Pré-postagem assíncrona e rótulo")
-$pdf = $correios->rotulo()->tentarObter($token, SolicitacaoRotulo::porIds([$criada->id]));
-$pdf?->salvar('/tmp/rotulo.pdf');
+// uma tentativa de obter o rótulo; se não vier, tente de novo mais tarde (ver "Pré-postagem assíncrona e rótulo")
+$tentativa = $correios->rotulo()->obter($token, SolicitacaoRotulo::porIds([$criada->id]));
+$tentativa->arquivo?->salvar('/tmp/rotulo.pdf');
 // ou a etiqueta em ZPL gerada pelo componente:
 $zpl = $correios->etiquetas()->postagemDePrePostagem($nova, $criada);
 
@@ -269,7 +269,7 @@ objetos tipados. Cada resposta expõe `respostaBruta()` com o JSON original. Val
 | `preco()` | `calcular($token, ConsultaPreco)`, `calcularLote($token, [ConsultaPreco, ...])` (até 5), `servicosAdicionais($token, 'sedex')` |
 | `prazo()` | `calcular($token, ConsultaPrazo)`, `calcularLote($token, [...])`, `dataPrevista($token, ConsultaDataPrevista)` |
 | `prePostagem()` | `criar`, `criarAssincrona` (devolve o recibo), `consultarAssincrona`, `cancelar`, `cancelarPorCodigoObjeto`, `cancelarLote`, `consultarCancelamentoLote`, `dadosPostagem` |
-| `rotulo()` | `solicitar($token, SolicitacaoRotulo): ReciboRotulo`, `baixar($token, $recibo): ArquivoRotulo`, `tentarObter($token, SolicitacaoRotulo): ?ArquivoRotulo` |
+| `rotulo()` | `solicitar($token, SolicitacaoRotulo): ReciboRotulo`, `baixar($token, $recibo): ArquivoRotulo`, `obter($token, SolicitacaoRotulo, $recibo = null): TentativaRotulo` |
 | `dce()` | `imprimirDace($token, SolicitacaoDace): Dace`, `atualizarDocumentoFiscal($token, $codigoObjeto, $chave, $numeroNota)` |
 | `rastro()` | `rastrear($token, $codigo)` (todos os eventos), `rastrearVarios($token, [...])` (até 50, último evento) |
 | `etiquetas()` | ZPL sem chamada à API — ver [Etiquetas](#etiquetas) |
@@ -290,18 +290,27 @@ foreach ($lote->itens as $item) {
 lista ou objeto único.
 
 **Observação da pré-postagem:** no máximo **50 caracteres** (`NovaPrePostagem::MAXIMO_OBSERVACAO`, limite do
-schema). A etiqueta ZPL do componente aceita observações mais longas (até 110). Ainda não se confirmou se a
-observação sai impressa no rótulo PDF dos Correios; o teste de integração 11 grava um rótulo para conferência.
+schema). Ela **sai impressa no rótulo PDF** dos Correios (confirmado em homologação em 11/10/2026, layout `PADRAO`).
+A etiqueta ZPL do componente aceita observações mais longas (até 110).
 
-**Situação do rastreamento:** `$rastreamento->situacao()` (evento mais recente) e `$evento->situacao()` devolvem
-`SituacaoRastreamento` (`Postado`, `EmTransito`, `SaiuParaEntrega`, `Entregue`, `AguardandoRetirada`, `Devolvido`,
-`Problema`, `Cancelado` ou `Desconhecida`). A tabela oficial de eventos **não faz parte da especificação**: a tabela
-padrão traz só os eventos do exemplo do manual (`PO-01`, `RO-01`, `OEC-03`, `BDE-01`), porque o significado do
-código muda com o tipo. Complete-a com os eventos que a aplicação já viu; as entradas dela têm prioridade:
+**Situação do rastreamento:** `$rastreamento->situacao()` e `$evento->situacao()` devolvem `SituacaoRastreamento`
+(`AguardandoPostagem`, `Postado`, `EmTransito`, `SaiuParaEntrega`, `AguardandoRetirada`, `Entregue`, `EmDevolucao`,
+`Devolvido`, `Problema`, `Cancelado` ou `Desconhecida`). A classificação vem do **catálogo oficial de eventos**
+(`Rastreamento\CatalogoEventos`, 376 eventos do webhook de rastreamento), com a tabela comentada em
+[`doc/referencia/correios-eventos-rastreio.md`](doc/referencia/correios-eventos-rastreio.md). O tipo muda o
+significado do código (`BDE-1` é entrega; `BDE-20`, carteiro não atendido), por isso o catálogo usa os dois.
+
+- `FC-82` ("Etiqueta emitida", visto em homologação) é `AguardandoPostagem`: o objeto ainda não foi à agência.
+- `EST` ("Favor desconsiderar a informação anterior") anula o evento anterior: `situacao()` usa
+  `ultimoEventoValido()`, que pula o `EST` e o evento que ele anula. `ultimoEvento()` continua devolvendo o mais
+  recente, seja qual for.
+- Evento fora do catálogo ou sem descrição nele (`FC-66`, `RO-2`...) é `Desconhecida`; a `descricao` da API continua
+  disponível. `CatalogoEventos::descricao('BDE', '01')` devolve a descrição oficial.
+- O mapa da aplicação tem prioridade sobre o catálogo (`'CODIGO-TIPO'` ou `'CODIGO'`):
 
 ```php
-$mapa = ['LDI-01' => SituacaoRastreamento::AguardandoRetirada, 'BDE-20' => SituacaoRastreamento::Problema];
-$situacao = $rastreamento->situacao($mapa);           // código desconhecido: SituacaoRastreamento::Desconhecida
+$mapa = ['BDE-20' => SituacaoRastreamento::EmTransito];   // ex.: tratar "carteiro não atendido" como andamento
+$situacao = $rastreamento->situacao($mapa);
 if ($situacao->finalizada()) { /* entregue, devolvido ou cancelado: pare de consultar */ }
 ```
 
@@ -323,23 +332,31 @@ impressora (`texto()`). Com NF-e emitida depois, use `atualizarDocumentoFiscal()
 
 - Na via assíncrona, `situacao = PROCESSADO` **não basta**: a pré-postagem fica alguns minutos no status **7** antes
   do **2**. Em homologação (04/10/2026) isso aconteceu também na criação **síncrona**.
-- O rótulo pedido com status 7 é aceito, mas o download falha com **PPN-288** (`ErroPrePostagemPendente`) e
-  **aquele recibo nunca passa a funcionar**: aguarde o status 2 e **solicite o rótulo de novo**.
-- **Pré-postagem síncrona:** não há endpoint para consultar o status por id. O próprio download diz se ela ainda
-  está pendente: chame `rotulo()->tentarObter()` a cada volta de um job da aplicação. Ele solicita e baixa numa
-  tentativa e devolve `null` em PPN-288; cada tentativa usa um recibo novo, e o código do objeto não muda. Para ter
-  o `statusAtual` antes de pedir o rótulo, use a via assíncrona (`consultarAssincrona()`).
+- O download do rótulo pode responder, com **HTTP 200**, um de dois códigos:
+
+| Código | Exceção em `baixar()` | O que significa | Próxima tentativa |
+|---|---|---|---|
+| **PPN-291** | `ErroRotuloEmGeracao` | O rótulo ainda está sendo gerado (comum logo depois da solicitação) | **Mesmo recibo**, alguns segundos depois |
+| **PPN-288** | `ErroPrePostagemPendente` | A pré-postagem estava PENDENTE (status 7) | **Recibo novo**: este nunca volta a funcionar |
+
+- **`rotulo()->obter()`** faz uma tentativa (solicita, se não receber um recibo, e baixa) e devolve uma
+  `TentativaRotulo`: `Pronto` (com o PDF), `EmGeracao` (guarde o recibo) ou `Pendente` (descarte o recibo). Serve
+  também para a pré-postagem síncrona, que não tem consulta de status por id: o próprio download diz se ela ainda
+  está pendente. O código do objeto não muda entre as solicitações.
 
 ```php
 // job da aplicação (ex.: Laravel), reagendado com intervalo crescente
-$arquivo = $correios->rotulo()->tentarObter($token, SolicitacaoRotulo::porIds([$idPrePostagem]));
-if ($arquivo === null) {
-    $this->release([5, 10, 30, 60, 120][$this->attempts() - 1] ?? 120);   // ainda PENDENTE
+$tentativa = $correios->rotulo()->obter($token, SolicitacaoRotulo::porIds([$envio->prepostagem_id]), $envio->recibo_rotulo);
+if (!$tentativa->pronto()) {
+    $envio->update(['recibo_rotulo' => $tentativa->reciboParaProximaTentativa()?->idRecibo]);  // PPN-291 guarda; PPN-288 limpa
+    $this->release([5, 10, 30, 60, 120][$this->attempts() - 1] ?? 120);
     return;
 }
-$arquivo->salvar($caminho);
+$tentativa->arquivo->salvar($caminho);
 ```
 
+- `tentarObter()` (0.2.0) está obsoleto: pede um recibo novo a cada chamada e devolve `null` nos dois casos.
+- Para ter o `statusAtual` antes de pedir o rótulo, use a via assíncrona (`consultarAssincrona()`).
 - O componente **não faz espera nem repetição**. A rotina abaixo é da aplicação (intervalo crescente e limite):
 
 ```php
@@ -355,8 +372,8 @@ foreach ([5, 10, 30, 60, 120] as $segundos) {           // na aplicação real: 
         $id = $processamento->prePostagens[0]->id;
         try {
             $pdf = $correios->rotulo()->baixar($token, $correios->rotulo()->solicitar($token, SolicitacaoRotulo::porIds([$id])));
-        } catch (ErroPrePostagemPendente) {
-            continue;                                     // o recibo morreu: solicite de novo na próxima volta
+        } catch (ErroPrePostagemPendente | ErroRotuloEmGeracao) {
+            continue;                                     // ver a tabela acima; obter() separa os dois casos
         }
         break;
     }
@@ -366,7 +383,8 @@ foreach ([5, 10, 30, 60, 120] as $segundos) {           // na aplicação real: 
 - Um recibo com várias pré-postagens devolve **um único PDF** A4 com as etiquetas lado a lado. Repetir a solicitação
   gera novo recibo, mas mantém o código do objeto. O rótulo só pode ser emitido com as **mesmas credenciais** que
   criaram a pré-postagem.
-- Para impressora térmica, `LayoutImpressao::Linear100x150` ou `Linear100x80` (não testados em homologação).
+- Para impressora térmica, `LayoutImpressao::Linear100x150` ou `Linear100x80` (não testados em homologação; o
+  `PADRAO` e a DACE completa foram obtidos em 11/10/2026).
 
 ## Serviços adicionais
 
@@ -379,25 +397,28 @@ foreach ([5, 10, 30, 60, 120] as $segundos) {           // na aplicação real: 
 - **Valor declarado:** o código muda por serviço (`019` no SEDEX, `064` no PAC nos testes) — informe-o:
   `ServicoAdicional::valorDeclarado('019', 25000)`.
 - **Categoria do adicional:** para não fixar códigos, localize o adicional de cada serviço pela categoria
-  (`CategoriaServicoAdicional`: `AvisoRecebimento`, `MaoPropria`, `ValorDeclarado`, `ArtigosPerigosos`), que vem da
-  sigla e do nome devolvidos pela API:
+  (`CategoriaServicoAdicional`: `AvisoRecebimento`, `AvisoRecebimentoEletronico`, `AvisoRecebimentoDigital`,
+  `MaoPropria`, `ValorDeclarado`, `ArtigosPerigosos`). A sigla exata devolvida pela API tem prioridade (`AR`, `EAR`,
+  `ARDIG`, `MP`, `VD`/`VDS`, `AP`); sem ela, vale o nome. Assim o AR convencional (001) não se confunde com o
+  eletrônico (021) e o digital (037):
 
 ```php
 $adicionais = $correios->preco()->servicosAdicionais($token, 'pac');
-$vd = CategoriaServicoAdicional::ValorDeclarado->localizar($adicionais);        // 064 no PAC dos testes
-$mp = CategoriaServicoAdicional::MaoPropria->localizar($adicionais);            // null se o serviço não aceitar
+$vd = CategoriaServicoAdicional::ValorDeclarado->localizar($adicionais);        // 064 VDS no PAC da homologação
+$mp = CategoriaServicoAdicional::MaoPropria->localizar($adicionais);            // 002; null se o serviço não aceitar
 
 $lista = array_filter([$vd ? ServicoAdicional::de($vd, 25000) : null, $mp ? ServicoAdicional::de($mp) : null]);
 ```
 
-- **Mão própria:** o código não está na documentação. Use a categoria acima ou `ServicoAdicional::maoPropria($codigo)`
-  com o código que a sua aplicação já descobriu.
-- **Bateria, inflamável, explosivo:** a API Pré-postagem não tem campo para isso. O único campo é a declaração
-  obrigatória `cienteObjetoNaoProibido` (`NovaPrePostagem`, padrão `true` = `"1"`, objeto permitido; `false` envia
-  `"0"`, objeto proibido no fluxo postal). A API Rastro cita um serviço adicional de transporte de artigos perigosos
-  (`CategoriaServicoAdicional::ArtigosPerigosos`, reconhecido pelo nome, se o contrato o tiver), e a resposta da
-  pré-postagem traz `ehObjetoDgr` em `PrePostagemCriada::$objetoPerigoso`. As regras de aceitação de artigos
-  restritos (ex.: baterias de lítio) não estão na documentação: confirme com os Correios.
+- **Mão própria:** o código não está na documentação; em homologação foi `002` (sigla `MP`) em SEDEX, PAC e nos
+  reversos. Use a categoria acima ou `ServicoAdicional::maoPropria($codigo)`.
+- **Bateria, inflamável, explosivo:** a API Pré-postagem não tem campo para isso. A indicação é o **adicional de
+  artigos perigosos**: em homologação, `095` (sigla `AP`, "ARTIGOS PERIGOSOS ANAC") em SEDEX, PAC e nos reversos
+  (`CategoriaServicoAdicional::ArtigosPerigosos`). Inclua-o na cotação e na pré-postagem; serviço sem esse adicional
+  não aceita o envio. Além dele, a declaração obrigatória `cienteObjetoNaoProibido` (`NovaPrePostagem`, padrão
+  `true` = `"1"`, objeto permitido; `false` envia `"0"`, objeto proibido no fluxo postal) e o campo `ehObjetoDgr` da
+  resposta, em `PrePostagemCriada::$objetoPerigoso`. As regras de aceitação de artigos restritos (ex.: baterias de
+  lítio) não estão na documentação: confirme com os Correios.
 
 ## Etiquetas
 
@@ -520,7 +541,8 @@ CorreiosException (interface)
 ├── ErroAutenticacao         HTTP 401/403
 ├── ErroLimiteRequisicoes    HTTP 429
 └── ErroApi                  demais erros, inclusive regras de negócio com HTTP 400, 404 ou 422
-    └── ErroPrePostagemPendente   PPN-288 (rótulo pedido com a pré-postagem pendente)
+    ├── ErroPrePostagemPendente   PPN-288 (rótulo pedido com a pré-postagem pendente: peça outro recibo)
+    └── ErroRotuloEmGeracao       PPN-291 (rótulo ainda em geração: baixe de novo com o mesmo recibo)
 ```
 
 `ErroApi`, `ErroAutenticacao` e `ErroLimiteRequisicoes` expõem `statusHttp`, `mensagens`, `codigoErro`
@@ -544,8 +566,13 @@ try {
 }
 ```
 
-Mensagens não incluem token, código de acesso nem senha. O log (PSR-3) mascara token, Basic Auth, CPF/CNPJ e omite
-o Base64 de rótulos e DACE.
+Mensagens não incluem token, código de acesso nem senha.
+
+**Log (PSR-3):** cada chamada gera dois registros em DEBUG (requisição e resposta, com método, URL, status e
+duração) e um em ERROR na falha de conexão. O corpo vai mascarado: token, Basic Auth e CPF/CNPJ; nome, endereço
+(menos CEP, cidade e UF), telefones e e-mail de remetente, destinatário e recebedor; coordenadas e comentários da
+entrega; o Base64 de rótulos e DACE é omitido. Para não gravar corpo nenhum, use `logarCorpo: false` na
+`Configuracao` (`'log_corpo' => false` no array, `CORREIOS_LOG_CORPO=false` no Laravel).
 
 ## Limitações conhecidas
 
@@ -561,10 +588,14 @@ Pontos não testados, instáveis ou observados de forma diferente da especifica�
   cancelada responde `PPN-145-5`. O resultado do cancelamento em lote vem como lista (`ProcessamentoCancelamento::$itens`).
 - **`GET .../postada`** (dados da postagem) não foi testado: só responde depois da postagem física. Datas e medidas
   ficam como texto.
-- **DACE** não foi obtida em homologação (PPN-376 com a pré-postagem pendente). O formato do tipo `T` (texto puro ou
-  Base64) não foi confirmado; `Dace::texto()` aceita os dois.
-- **Layouts de rótulo** diferentes de `PADRAO` e `tipoRotulo = R` não foram testados. O teste de integração 11 pede
-  o `Linear100x150` e grava o PDF em `build/homologacao/` quando a pré-postagem não fica pendente.
+- **PPN-291 com HTTP 200:** observado em 11/10/2026 no download feito logo depois da solicitação. O recibo continua
+  válido; o componente lança `ErroRotuloEmGeracao`, e `obter()` devolve `EmGeracao`.
+- **DACE:** a completa foi obtida em homologação em 11/10/2026 (pelo MARCELO ENVIOS). Com a pré-postagem pendente, a
+  API responde PPN-376. O formato do tipo `T` (texto puro ou Base64) não foi confirmado; `Dace::texto()` aceita os
+  dois.
+- **Layouts de rótulo:** o `PADRAO` foi obtido em homologação (11/10/2026). `Linear100x150`, os demais lineares e
+  `tipoRotulo = R` não foram testados; o teste de integração 11 pede o `Linear100x150` e grava o PDF em
+  `build/homologacao/`.
 - **Endpoints HTML** de declaração de conteúdo e AR falham no servidor de homologação e não fazem parte do componente.
 - **Fora do escopo desta versão:** Webhook, autenticação por contrato ou só por usuário, agências, faturas, faixas de
   etiquetas, Pedido de Informação, serviços internacionais, lote de objetos simples, imagens de entrega e AR Digital.
@@ -576,10 +607,14 @@ Pontos não testados, instáveis ou observados de forma diferente da especifica�
 - **Etiqueta de declaração de conteúdo em ZPL:** não implementada (falta o texto legal e o layout aprovados).
 - **Limites de peso e medidas por serviço** não são validados localmente: a documentação das APIs não traz a tabela
   e a API recusa o que estiver fora do limite (a mensagem chega em `ErroApi`).
-- **Situação do rastreamento:** a tabela padrão tem só os quatro eventos do manual; os demais ficam como
-  `Desconhecida` até a aplicação mapeá-los.
-- **Código de mão própria e de artigos perigosos:** não documentados; a categoria é identificada pela sigla e pelo
-  nome que a API Preço devolve. O teste de integração 04b grava o que a homologação devolveu.
+- **Situação do rastreamento:** a classificação dos eventos é do componente, não dos Correios (critérios em
+  `doc/referencia/correios-eventos-rastreio.md`). Onze eventos do catálogo não têm descrição e ficam como
+  `Desconhecida`.
+- **Rastreio fora do contrato:** em homologação (12/10/2026), um código de outro contrato voltou sem eventos e com a
+  mensagem "Objeto não pertence ao contrato" (não o SRO-020 do manual). Não se sabe se, em produção, a consulta
+  alcança objetos de outros remetentes.
+- **Códigos dos adicionais:** não documentados. Em homologação (11/10/2026) vieram `001` AR, `021` EAR, `037` ARDIG,
+  `002` MP, `019` VD (SEDEX), `064` VDS (PAC) e `095` AP; use `CategoriaServicoAdicional` para não fixá-los.
 - **Certificados no Windows:** se o PHP não tiver um pacote de autoridades certificadoras (`curl.cainfo` vazio), as
   chamadas falham com "self-signed certificate in certificate chain". Configure `curl.cainfo` no `php.ini`.
 
