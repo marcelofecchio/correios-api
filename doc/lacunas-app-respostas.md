@@ -2,7 +2,7 @@
 
 Resposta, item a item, ao `correios-api-gaps.md` (Fase 0 do MARCELO ENVIOS, 11/10/2026). As mudanças saíram na versão
 **0.2.0** do pacote (ver `CHANGELOG.md`). A [segunda rodada](#segunda-rodada-12102026), sobre o levantamento revisado
-contra a 0.2.0, está no fim e vai na próxima versão (seção "Não lançado" do `CHANGELOG.md`).
+contra a 0.2.0, está no fim e saiu na versão **0.3.0**.
 
 Situação: **resolvido** (o pacote passou a cobrir) · **parcial** (o pacote ajuda, mas falta dado dos Correios) ·
 **fora do pacote** (depende de teste real ou de documentação que não existe).
