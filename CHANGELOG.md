@@ -5,6 +5,8 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.5.0] - 2026-10-16
+
 Rejeição 812 da DC-e para remetente contribuinte do ICMS, que a SEFAZ passa a verificar em 02/11/2026 (comunicado dos
 Correios em `doc/comunicados/2026-10-dce-contribuinte-icms.md`).
 
@@ -136,7 +138,8 @@ Primeira versão.
 - **Template de postagem:** o campo cidade/UF do destinatário foi movido de x=200 para x=212 para não encostar no CEP
   em 300 dpi (conferido no Labelary).
 
-[Não lançado]: https://github.com/marcelofecchio/correios-api/compare/v0.4.0...HEAD
+[Não lançado]: https://github.com/marcelofecchio/correios-api/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/marcelofecchio/correios-api/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/marcelofecchio/correios-api/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/marcelofecchio/correios-api/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/marcelofecchio/correios-api/compare/v0.1.0...v0.2.0
