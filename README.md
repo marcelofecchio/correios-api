@@ -77,6 +77,7 @@ $configuracao = new Configuracao(
         endereco: new Endereco('01310-100', 'Avenida Paulista', '1000', 'Bela Vista', 'São Paulo', 'SP', 'Sala 101'),
         documento: '11.222.333/0001-81',
         email: 'contato@minhaloja.com.br',
+        contribuinteIcms: true,                      // inscrição estadual ativa: envia com NF-e, nunca com DC-e
     ),
 );
 
@@ -255,6 +256,77 @@ $reversa = $correios->prePostagem()->criar($token, new NovaPrePostagem(
 ));
 ```
 
+### DC-e e remetente contribuinte do ICMS
+
+A partir de **02/11/2026** a SEFAZ verifica, na emissão da DC-e (`emiteDCe: true`), se o CNPJ do remetente é
+contribuinte do ICMS. Se for, a DC-e não é emitida e a API responde com a **Rejeição 812 — Usuário emitente bloqueado
+para emissão de DC-e [Contribuinte de ICMS]**. A regra é das Secretarias de Fazenda e vale para qualquer transportador.
+O comunicado completo está em
+[`doc/comunicados/2026-10-dce-contribuinte-icms.md`](doc/comunicados/2026-10-dce-contribuinte-icms.md).
+
+**Qual documento usar:**
+
+| Remetente | O que é enviado | Documento | Na `NovaPrePostagem` |
+|---|---|---|---|
+| Contribuinte do ICMS (inscrição estadual ativa) | Bens e mercadorias | **NF-e** | `chaveNFe` (e `numeroNotaFiscal`), **sem** `emiteDCe` |
+| Contribuinte do ICMS | Documentos em papel (contratos, correspondências) | A legislação não exige NF-e | `itens` (ex.: "Documentos"), **sem** `emiteDCe` |
+| Não contribuinte (pessoa física, empresa sem inscrição estadual) | Bens e mercadorias | **DC-e** | `itens` + `emiteDCe: true` |
+| Não contribuinte | Remessa dispensada pelo Ajuste SINIEF nº 35/2026 | O documento que a dispensa exige | Ver as dispensas no comunicado |
+
+**O que a aplicação deve fazer:**
+
+1. **Saber o regime de cada remetente.** Guarde no cadastro se a loja (e qualquer outro remetente) tem inscrição
+   estadual ativa e informe isso no remetente: `new Pessoa(..., contribuinteIcms: true)` ou
+   `'contribuinte_icms' => true` no `remetente_padrao`. Com isso o componente recusa `emiteDCe` com `ErroValidacao`
+   (campo `emiteDCe`) **antes** de chamar a API. Sem a informação (`null`), nada é verificado localmente e o erro vem
+   da API.
+2. **Contribuinte: emita a NF-e antes da pré-postagem** e envie a chave de 44 dígitos em `chaveNFe`. Se a nota sair
+   depois, crie a pré-postagem sem `emiteDCe` e informe a chave antes da postagem com
+   `dce()->atualizarDocumentoFiscal()`. O objeto segue com o DANFE (o simplificado sai de
+   `etiquetas()->danfeSimplificada()`).
+3. **Contribuinte enviando documentos em papel:** a legislação não exige NF-e. Informe os itens da declaração de
+   conteúdo sem `emiteDCe`. Os Correios ainda estão adequando os sistemas às dispensas; confirme o procedimento com o
+   representante comercial.
+4. **Não contribuinte:** continue com `emiteDCe: true` e os itens. Nos casos de dispensa (documentos em papel, remessa
+   internacional com DSI/DIR, bens com documento de órgão público, amostras biológicas), a remessa segue com o
+   documento exigido.
+5. **Logística reversa:** o remetente é o cliente que devolve. Se ele for uma empresa contribuinte, a devolução de
+   mercadoria também precisa de NF-e em vez de `emiteDCe`.
+6. **Trate a Rejeição 812** nos pontos em que ela pode aparecer:
+
+```php
+use MarceloFecchio\Correios\Excecoes\ErroContribuinteIcms;
+use MarceloFecchio\Correios\Excecoes\ErroValidacao;
+
+try {
+    $criada = $correios->prePostagem()->criar($token, $nova);
+    if ($criada->recusadaPorContribuinteIcms()) {
+        // a pré-postagem foi cancelada pela falha da DC-e (motivoCancelamento): crie outra com a chave da NF-e
+    }
+} catch (ErroValidacao $e) {
+    if ($e->campo === 'emiteDCe') {
+        // remetente marcado como contribuinte: peça a NF-e e envie chaveNFe
+    }
+} catch (ErroContribuinteIcms $e) {
+    // Rejeição 812 vinda da API (na criação ou na impressão da DACE): o CNPJ do remetente é contribuinte.
+    // Marque o remetente com contribuinteIcms: true e reenvie com a chave da NF-e.
+}
+
+// pré-postagem assíncrona
+$processamento = $correios->prePostagem()->consultarAssincrona($token, $recibo);
+if ($processamento->recusadaPorContribuinteIcms()) {
+    // mesma correção: NF-e no lugar da DC-e
+}
+```
+
+`ErroContribuinteIcms` estende `ErroApi`: quem já trata `ErroApi` continua funcionando, mas sem saber o que fazer.
+Não reenvie a mesma pré-postagem: a rejeição se repete enquanto o documento fiscal não mudar. O texto exato da
+rejeição na API ainda não foi observado; o componente reconhece "Rejeição 812", "bloqueado para emissão de DC-e" e
+"[Contribuinte de ICMS]" em qualquer ponto da mensagem.
+
+**Antes de 02/11/2026:** confira com a SEFAZ ou com a contabilidade se o CNPJ de cada remetente é contribuinte,
+marque `contribuinteIcms` no cadastro e ajuste a expedição para emitir a NF-e antes da pré-postagem.
+
 ## Módulos
 
 Todos os métodos autenticados recebem o token como primeiro argumento (`Token` ou o texto do token) e devolvem
@@ -316,7 +388,9 @@ if ($situacao->finalizada()) { /* entregue, devolvido ou cancelado: pare de cons
 
 **DCe e DACE:** sem nota fiscal, crie a pré-postagem com os itens e `emiteDCe: true` e imprima a DACE:
 `TipoDace::Completa`/`Resumida` devolvem PDF (`conteudoBinario()`); `TipoDace::Termica` devolve texto para a
-impressora (`texto()`). Com NF-e emitida depois, use `atualizarDocumentoFiscal()`.
+impressora (`texto()`). Com NF-e emitida depois, use `atualizarDocumentoFiscal()`. A partir de 02/11/2026 a DC-e
+não é emitida para remetente contribuinte do ICMS (Rejeição 812): ver
+[DC-e e remetente contribuinte do ICMS](#dc-e-e-remetente-contribuinte-do-icms).
 
 ## Pré-postagem assíncrona e rótulo
 
@@ -585,7 +659,8 @@ CorreiosException (interface)
 ├── ErroLimiteRequisicoes    HTTP 429
 └── ErroApi                  demais erros, inclusive regras de negócio com HTTP 400, 404 ou 422
     ├── ErroPrePostagemPendente   PPN-288 (rótulo pedido com a pré-postagem pendente: peça outro recibo)
-    └── ErroRotuloEmGeracao       PPN-291 (rótulo ainda em geração: baixe de novo com o mesmo recibo)
+    ├── ErroRotuloEmGeracao       PPN-291 (rótulo ainda em geração: baixe de novo com o mesmo recibo)
+    └── ErroContribuinteIcms      Rejeição 812 (remetente contribuinte do ICMS: use NF-e, não DC-e)
 ```
 
 `ErroApi`, `ErroAutenticacao` e `ErroLimiteRequisicoes` expõem `statusHttp`, `mensagens`, `codigoErro`
@@ -643,6 +718,9 @@ Pontos não testados, instáveis ou observados de forma diferente da especifica�
 - **Layouts de rótulo:** o `PADRAO` foi obtido em homologação (11/10/2026). `Linear100x150`, os demais lineares e
   `tipoRotulo = R` não foram testados; o teste de integração 11 pede o `Linear100x150` e grava o PDF em
   `build/homologacao/`.
+- **Rejeição 812 (contribuinte do ICMS):** a verificação começa em 02/11/2026 e a resposta da API ainda não foi
+  observada; o componente reconhece a rejeição pelo texto. A API não tem campo para as dispensas do Ajuste SINIEF
+  nº 35/2026.
 - **Endpoints HTML** de declaração de conteúdo e AR falham no servidor de homologação e não fazem parte do componente.
 - **Fora do escopo desta versão:** Webhook, autenticação por contrato ou só por usuário, agências, faturas, faixas de
   etiquetas, Pedido de Informação, serviços internacionais, lote de objetos simples, imagens de entrega e AR Digital.

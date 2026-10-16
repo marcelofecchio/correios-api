@@ -5,6 +5,21 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+Rejeição 812 da DC-e para remetente contribuinte do ICMS, que a SEFAZ passa a verificar em 02/11/2026 (comunicado dos
+Correios em `doc/comunicados/2026-10-dce-contribuinte-icms.md`).
+
+### Adicionado
+
+- `ErroContribuinteIcms` (subclasse de `ErroApi`): Rejeição 812 "Usuário emitente bloqueado para emissão de DC-e
+  [Contribuinte de ICMS]", reconhecida pelo texto da mensagem ou da `causa`. `ErroContribuinteIcms::reconhece()`
+  testa um texto avulso.
+- `Pessoa::$contribuinteIcms` (`contribuinte_icms` no array e no `remetente_padrao`): com `true`, a criação da
+  pré-postagem com `emiteDCe` é recusada com `ErroValidacao` (campo `emiteDCe`) antes de chamar a API.
+- `PrePostagemCriada::recusadaPorContribuinteIcms()` (Rejeição 812 em `motivoCancelamento`) e
+  `ProcessamentoAssincrono::recusadaPorContribuinteIcms()` (nas mensagens de falha ou nas pré-postagens).
+- README: seção "DC-e e remetente contribuinte do ICMS", com o documento fiscal de cada caso e o que a aplicação
+  deve fazer.
+
 ## [0.4.0] - 2026-10-12
 
 ZPL em PDF pelo Labelary, como alternativa ao rótulo oficial dos Correios.

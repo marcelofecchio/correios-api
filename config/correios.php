@@ -43,6 +43,8 @@ return [
     //     'documento' => '11222333000181',
     //     'email' => 'contato@minhaloja.com.br',
     //     'celular' => '11987654321',
+    //     // Inscrição estadual ativa: a SEFAZ não emite DC-e (Rejeição 812); envie com a chave da NF-e
+    //     'contribuinte_icms' => true,
     //     'endereco' => [
     //         'cep' => '01310100', 'logradouro' => 'Avenida Paulista', 'numero' => '1000',
     //         'complemento' => 'Sala 101', 'bairro' => 'Bela Vista', 'cidade' => 'São Paulo', 'uf' => 'SP',

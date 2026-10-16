@@ -111,6 +111,21 @@ describe('Pessoa', function (): void {
         expect($pessoa->documento)->toBe('11222333000181')
             ->and(fn() => Pessoa::deArray(['nome' => 'Sem Endereco']))->toThrow(ErroValidacao::class, 'endereco');
     });
+
+    it('lê contribuinte_icms do array', function (mixed $valor, ?bool $esperado): void {
+        $endereco = ['cep' => '01310100', 'logradouro' => 'Av. Paulista', 'numero' => '1000', 'bairro' => 'Bela Vista', 'cidade' => 'São Paulo', 'uf' => 'SP'];
+
+        expect(Pessoa::deArray(['nome' => 'Loja Teste', 'endereco' => $endereco, 'contribuinte_icms' => $valor])->contribuinteIcms)->toBe($esperado)
+            ->and(Pessoa::deArray(['nome' => 'Loja Teste', 'endereco' => $endereco, 'contribuinteIcms' => true])->contribuinteIcms)->toBeTrue()
+            ->and(fn() => Pessoa::deArray(['nome' => 'Loja Teste', 'endereco' => $endereco, 'contribuinte_icms' => 'talvez']))->toThrow(ErroValidacao::class, 'contribuinte_icms');
+    })->with([
+        [true, true],
+        [false, false],
+        ['true', true],
+        ['0', false],
+        ['', null],
+        [null, null],
+    ]);
 });
 
 describe('Item', function (): void {

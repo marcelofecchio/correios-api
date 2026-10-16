@@ -8,6 +8,10 @@
 >
 > ✔ **Observado em homologação (04/10/2026):** uma pré-postagem síncrona criada com `emiteDCe: "S"` voltou com `statusAtual = 7` (PENDENTE). A impressão da DACE (`tipoDace: "C"`, por `idsPrePostagens`) respondeu **HTTP 404** com `PPN-376: Não é possível emitir DACE para NF-e, objetos que não estejam prepostados ou sem chave D…` (mensagem registrada só até esse ponto). Por isso a DACE ainda não foi obtida. Antes de imprimi-la, confirme que a pré-postagem está com status 2 (PREPOSTADO).
 
+> ⚠ **A partir de 02/11/2026:** a SEFAZ verifica se o CNPJ do remetente é contribuinte do ICMS ao emitir a DC-e. Se
+> for, a DC-e não é emitida: **Rejeição 812 — Usuário emitente bloqueado para emissão de DC-e [Contribuinte de ICMS]**.
+> Contribuinte envia bens com NF-e (`chaveNFe`). Comunicado em `../comunicados/2026-10-dce-contribuinte-icms.md`.
+
 ## 0. Resumo rápido
 
 - **DCe** = Declaração de Conteúdo Eletrônica: o documento fiscal que acompanha o objeto quando **não há nota fiscal** (substitui a declaração de conteúdo em papel).

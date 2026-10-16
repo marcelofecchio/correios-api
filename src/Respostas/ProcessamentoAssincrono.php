@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarceloFecchio\Correios\Respostas;
 
 use MarceloFecchio\Correios\Enums\SituacaoProcessamento;
+use MarceloFecchio\Correios\Excecoes\ErroContribuinteIcms;
 
 /**
  * Situação de uma pré-postagem assíncrona (`GET /prepostagem/v1/prepostagens/assincrona/{recibo}`).
@@ -48,6 +49,24 @@ final readonly class ProcessamentoAssincrono extends Resposta
         }
 
         return true;
+    }
+
+    /**
+     * A DC-e foi recusada porque o remetente é contribuinte do ICMS (Rejeição 812 nas mensagens de falha ou no
+     * `motivoCancelamento` de alguma pré-postagem). Envie de novo com a chave da NF-e.
+     */
+    public function recusadaPorContribuinteIcms(): bool
+    {
+        if (ErroContribuinteIcms::reconheceAlguma($this->todasAsMensagens())) {
+            return true;
+        }
+        foreach ($this->prePostagens as $prePostagem) {
+            if ($prePostagem->recusadaPorContribuinteIcms()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

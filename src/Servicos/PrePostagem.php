@@ -119,6 +119,10 @@ final class PrePostagem extends Servico
     {
         $remetente = $prePostagem->remetente ?? $this->configuracao->remetentePadrao
             ?? throw ErroValidacao::campo('remetente', 'informe o remetente ou configure o remetente padrão.');
+        if ($prePostagem->emiteDCe && $remetente->contribuinteIcms === true) {
+            throw ErroValidacao::campo('emiteDCe', 'o remetente é contribuinte do ICMS e a SEFAZ recusa a DC-e (Rejeição 812, desde'
+                . ' 02/11/2026): informe a chave da NF-e (chaveNFe) em vez de emiteDCe.');
+        }
 
         return PrePostagemMapeador::paraApi($prePostagem, $remetente, $this->configuracao->resolverServico($prePostagem->servico));
     }

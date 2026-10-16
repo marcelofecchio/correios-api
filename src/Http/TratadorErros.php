@@ -7,6 +7,7 @@ namespace MarceloFecchio\Correios\Http;
 use MarceloFecchio\Correios\Excecoes\CorreiosException;
 use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroAutenticacao;
+use MarceloFecchio\Correios\Excecoes\ErroContribuinteIcms;
 use MarceloFecchio\Correios\Excecoes\ErroLimiteRequisicoes;
 use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
 use MarceloFecchio\Correios\Excecoes\ErroRotuloEmGeracao;
@@ -16,6 +17,7 @@ use MarceloFecchio\Correios\Excecoes\ErroRotuloEmGeracao;
  *
  * Lê os dois formatos de erro da API: `MessageResponse` (`msgs`, `causa`...) e `{"mensagem": "PPN-288: ..."}`.
  * Corpo que não é JSON (ex.: página HTML "HTTP Status 500") fica em `respostaBruta` como texto.
+ * A Rejeição 812 (contribuinte do ICMS) é reconhecida pelo texto, porque o código vem da SEFAZ e não dos Correios.
  *
  * @internal
  */
@@ -43,6 +45,15 @@ final class TratadorErros
         }
 
         return match (true) {
+            ErroContribuinteIcms::reconheceAlguma([...$mensagens, $causa]) => new ErroContribuinteIcms(
+                $texto . ' O remetente é contribuinte do ICMS e a SEFAZ não emite DC-e para ele: crie a pré-postagem com a'
+                    . ' chave da NF-e (chaveNFe) em vez de emiteDCe. Documentos em papel não exigem NF-e.',
+                $resposta->status,
+                $mensagens,
+                $codigo,
+                $causa,
+                $bruto,
+            ),
             $codigo === self::CODIGO_PENDENTE => new ErroPrePostagemPendente(
                 $texto . ' Aguarde a pré-postagem chegar ao status 2 (PREPOSTADO) e solicite o rótulo de novo: este recibo não volta a funcionar.',
                 $resposta->status,

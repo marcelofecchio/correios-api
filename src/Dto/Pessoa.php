@@ -13,7 +13,10 @@ use MarceloFecchio\Correios\Utilitarios\Texto;
  *
  * - `nome`: nome e sobrenome (ou razão social), de 3 a 50 caracteres;
  * - `documento`: CPF ou CNPJ, com ou sem máscara (guardado só com dígitos);
- * - `telefone`: DDD + 8 dígitos; `celular`: DDD + 9 dígitos.
+ * - `telefone`: DDD + 8 dígitos; `celular`: DDD + 9 dígitos;
+ * - `contribuinteIcms`: o remetente tem inscrição estadual ativa (contribuinte do ICMS). Desde 02/11/2026 a SEFAZ
+ *   não emite DC-e para contribuinte (Rejeição 812): com `true`, o componente recusa `emiteDCe` antes de chamar a
+ *   API. `null` = não informado (nada é verificado localmente).
  */
 final readonly class Pessoa
 {
@@ -30,6 +33,7 @@ final readonly class Pessoa
         ?string $email = null,
         ?string $telefone = null,
         ?string $celular = null,
+        public ?bool $contribuinteIcms = null,
     ) {
         $nome = Texto::limpar($nome);
         $tamanho = Texto::tamanho($nome);
@@ -45,8 +49,8 @@ final readonly class Pessoa
     }
 
     /**
-     * Monta a pessoa a partir de um array com as chaves `nome`, `documento`, `email`, `telefone`, `celular`
-     * e `endereco` (array no formato de `Endereco::deArray()`).
+     * Monta a pessoa a partir de um array com as chaves `nome`, `documento`, `email`, `telefone`, `celular`,
+     * `contribuinte_icms` (bool) e `endereco` (array no formato de `Endereco::deArray()`).
      *
      * @param array<mixed> $dados
      */
@@ -69,6 +73,7 @@ final readonly class Pessoa
             email: $texto('email'),
             telefone: $texto('telefone'),
             celular: $texto('celular'),
+            contribuinteIcms: self::logico($dados['contribuinte_icms'] ?? $dados['contribuinteIcms'] ?? null),
         );
     }
 
@@ -90,6 +95,19 @@ final readonly class Pessoa
     public function numeroCelular(): ?string
     {
         return $this->celular !== null ? substr($this->celular, 2) : null;
+    }
+
+    private static function logico(mixed $valor): ?bool
+    {
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+        if (is_bool($valor)) {
+            return $valor;
+        }
+        $logico = is_scalar($valor) ? filter_var($valor, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+
+        return $logico ?? throw ErroValidacao::campo('contribuinte_icms', 'informe true ou false.');
     }
 
     private static function preenchido(?string $valor): bool

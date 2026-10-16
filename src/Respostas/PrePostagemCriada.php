@@ -6,6 +6,7 @@ namespace MarceloFecchio\Correios\Respostas;
 
 use DateTimeImmutable;
 use MarceloFecchio\Correios\Enums\StatusPrePostagem;
+use MarceloFecchio\Correios\Excecoes\ErroContribuinteIcms;
 use MarceloFecchio\Correios\Utilitarios\CodigoRastreamento;
 
 /** Pré-postagem criada (resposta da criação síncrona ou item da consulta assíncrona). */
@@ -34,5 +35,14 @@ final readonly class PrePostagemCriada extends Resposta
     public function podeImprimirRotulo(): bool
     {
         return $this->status?->podeImprimirRotulo() ?? false;
+    }
+
+    /**
+     * A DC-e foi recusada porque o remetente é contribuinte do ICMS (Rejeição 812 em `motivoCancelamento`).
+     * Crie outra pré-postagem com a chave da NF-e.
+     */
+    public function recusadaPorContribuinteIcms(): bool
+    {
+        return $this->motivoCancelamento !== null && ErroContribuinteIcms::reconhece($this->motivoCancelamento);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use MarceloFecchio\Correios\Dto\Item;
 use MarceloFecchio\Correios\Dto\NovaPrePostagem;
+use MarceloFecchio\Correios\Dto\Pessoa;
 use MarceloFecchio\Correios\Dto\ServicoAdicional;
 use MarceloFecchio\Correios\Dto\SolicitacaoDace;
 use MarceloFecchio\Correios\Dto\SolicitacaoRotulo;
@@ -18,6 +19,7 @@ use MarceloFecchio\Correios\Enums\TipoDace;
 use MarceloFecchio\Correios\Enums\TipoRotulo;
 use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroConfiguracao;
+use MarceloFecchio\Correios\Excecoes\ErroContribuinteIcms;
 use MarceloFecchio\Correios\Excecoes\ErroPrePostagemPendente;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
 use MarceloFecchio\Correios\Respostas\ReciboRotulo;
@@ -465,5 +467,87 @@ describe('DCe', function (): void {
         expect(fn() => $dce->atualizarDocumentoFiscal(tokenTeste(), 'AB043180865BR', '123'))->toThrow(ErroValidacao::class, '44')
             ->and(fn() => $dce->atualizarDocumentoFiscal(tokenTeste(), 'AB043180865BR', '35261011222333000181550020000214861123456788', '1.234'))->toThrow(ErroValidacao::class, 'numeroNotaFiscal')
             ->and(fn() => $dce->atualizarDocumentoFiscal(tokenTeste(), '', '35261011222333000181550020000214861123456788'))->toThrow(ErroValidacao::class, 'codigoObjeto');
+    });
+});
+
+describe('DC-e e remetente contribuinte do ICMS (Rejeição 812)', function (): void {
+    $rejeicao = 'Rejeição 812 — Usuário emitente bloqueado para emissão de DC-e [Contribuinte de ICMS]';
+
+    it('recusa emiteDCe antes de chamar a API quando o remetente é contribuinte', function (array $configuracao, array $alterar): void {
+        $cliente = clienteMock();
+        try {
+            correiosTeste($cliente, configuracaoTeste($configuracao))->prePostagem()->criar(tokenTeste(), novaPrePostagemSedex(['emiteDCe' => true, ...$alterar]));
+            $this->fail('Deveria lançar ErroValidacao');
+        } catch (ErroValidacao $e) {
+            expect($e->campo)->toBe('emiteDCe')
+                ->and($e->getMessage())->toContain('Rejeição 812')
+                ->and($e->getMessage())->toContain('chaveNFe')
+                ->and($cliente->getRequests())->toBe([]);
+        }
+    })->with([
+        'remetente padrão do array' => [['remetentePadrao' => [
+            'nome' => 'Loja Teste Homologacao Ltda', 'documento' => CNPJ_TESTE, 'contribuinte_icms' => 'true',
+            'endereco' => ['cep' => '01310100', 'logradouro' => 'Avenida Paulista', 'numero' => '1000', 'bairro' => 'Bela Vista', 'cidade' => 'São Paulo', 'uf' => 'SP'],
+        ]], []],
+        'remetente da pré-postagem' => [[], ['remetente' => new Pessoa('Distribuidora Teste Ltda', lojaTeste()->endereco, CNPJ_TESTE, contribuinteIcms: true)]],
+    ]);
+
+    it('envia com NF-e de contribuinte e com DC-e de não contribuinte ou sem informação', function (): void {
+        $contribuinte = new Pessoa('Loja Teste Homologacao Ltda', lojaTeste()->endereco, CNPJ_TESTE, contribuinteIcms: true);
+        $naoContribuinte = new Pessoa('Loja Teste Homologacao Ltda', lojaTeste()->endereco, CNPJ_TESTE, contribuinteIcms: false);
+        $cliente = clienteMock(...array_fill(0, 3, respostaFixture(200, 'prepostagem_criada.json')));
+        $prePostagem = correiosTeste($cliente)->prePostagem();
+
+        $prePostagem->criar(tokenTeste(), novaPrePostagemSedex(['remetente' => $contribuinte, 'chaveNFe' => '35261011222333000181550020000214861123456788']));
+        $prePostagem->criar(tokenTeste(), novaPrePostagemSedex(['remetente' => $naoContribuinte, 'emiteDCe' => true]));
+        $prePostagem->criar(tokenTeste(), novaPrePostagemSedex(['emiteDCe' => true]));
+
+        expect($cliente->getRequests())->toHaveCount(3)
+            ->and(lojaTeste()->contribuinteIcms)->toBeNull();
+    });
+
+    it('lê a Rejeição 812 da API como ErroContribuinteIcms', function (int $status, array $corpo): void {
+        try {
+            correiosTeste(clienteMock(respostaJson($status, $corpo)))->prePostagem()->criar(tokenTeste(), novaPrePostagemSedex(['emiteDCe' => true]));
+            $this->fail('Deveria lançar ErroContribuinteIcms');
+        } catch (ErroContribuinteIcms $e) {
+            expect($e)->toBeInstanceOf(ErroApi::class)
+                ->and($e->statusHttp)->toBe($status)
+                ->and($e->getMessage())->toContain('contribuinte do ICMS')
+                ->and($e->getMessage())->toContain('chaveNFe');
+        }
+    })->with([
+        'msgs' => [400, ['msgs' => ['Rejeição 812 — Usuário emitente bloqueado para emissão de DC-e [Contribuinte de ICMS]']]],
+        'mensagem com código PPN, sem acentos' => [422, ['mensagem' => 'PPN-400: Rejeicao 812 - Usuario emitente bloqueado para emissao de DC-e']],
+        'só na causa' => [400, ['msgs' => ['Erro na geração da DCe.'], 'causa' => 'SEFAZ: Usuário emitente bloqueado para emissão de DCe [Contribuinte de ICMS]']],
+    ]);
+
+    it('lê a Rejeição 812 também na impressão da DACE', function () use ($rejeicao): void {
+        correiosTeste(clienteMock(respostaJson(400, ['msgs' => [$rejeicao]])))->dce()->imprimirDace(tokenTeste(), new SolicitacaoDace(TipoDace::Completa, idsPrePostagens: ['PR1']));
+    })->throws(ErroContribuinteIcms::class);
+
+    it('não confunde outras mensagens com a Rejeição 812', function (string $mensagem): void {
+        expect(ErroContribuinteIcms::reconhece($mensagem))->toBeFalse();
+    })->with([
+        'PPN-376: Não é possível emitir DACE para NF-e, objetos que não estejam prepostados ou sem chave DCe',
+        'Rejeição 8120: outra coisa',
+        'Valor 812,00 acima do limite',
+        'Contribuinte de ICMS informado',
+    ]);
+
+    it('aponta a rejeição no motivoCancelamento e no processamento assíncrono', function () use ($rejeicao): void {
+        $cliente = clienteMock(
+            respostaJson(200, ['id' => 'PR1', 'statusAtual' => 5, 'codigoObjeto' => 'AB043180865BR', 'motivoCancelamento' => $rejeicao]),
+            respostaJson(200, ['situacao' => 'FALHA', 'mensagens' => ['Erro ao processar a pré-postagem.'], 'sequencias' => [['ordem' => '1', 'mensagens' => [$rejeicao]]], 'prePostagens' => []]),
+            respostaJson(200, ['situacao' => 'PROCESSADO', 'prePostagens' => [['id' => 'PR2', 'statusAtual' => 5, 'motivoCancelamento' => $rejeicao]]]),
+            respostaFixture(200, 'assincrona_falha.json'),
+        );
+        $prePostagem = correiosTeste($cliente)->prePostagem();
+
+        expect($prePostagem->criar(tokenTeste(), novaPrePostagemSedex(['emiteDCe' => true]))->recusadaPorContribuinteIcms())->toBeTrue()
+            ->and($prePostagem->consultarAssincrona(tokenTeste(), 'r')->recusadaPorContribuinteIcms())->toBeTrue()
+            ->and($prePostagem->consultarAssincrona(tokenTeste(), 'r')->recusadaPorContribuinteIcms())->toBeTrue()
+            ->and($prePostagem->consultarAssincrona(tokenTeste(), 'r')->recusadaPorContribuinteIcms())->toBeFalse()
+            ->and(correiosTeste(clienteMock(respostaFixture(200, 'prepostagem_criada.json')))->prePostagem()->criar(tokenTeste(), novaPrePostagemSedex())->recusadaPorContribuinteIcms())->toBeFalse();
     });
 });
