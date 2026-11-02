@@ -121,6 +121,7 @@ describe('Camada HTTP interna', function (): void {
             ->and($mascarado['texto'])->toBe('cpf *********25 no texto')
             ->and($mascarado['n'])->toBe(5)
             ->and($mascarado['curto']['documento'])->toBe('**')
+            ->and(MascaradorLog::corpo('[{"objeto":"AB043180865BR","imagemBase64":"/9j/4AAQ"}]'))->toBe('[{"objeto":"AB043180865BR","imagemBase64":"[omitido: 8 caracteres]"}]')
             ->and(MascaradorLog::corpo('<html>11222333000181</html>'))->toBe('<html>************81</html>');
     });
 });

@@ -343,7 +343,7 @@ objetos tipados. Cada resposta expõe `respostaBruta()` com o JSON original. Val
 | `prePostagem()` | `criar`, `criarAssincrona` (devolve o recibo), `consultarAssincrona`, `cancelar`, `cancelarPorCodigoObjeto`, `cancelarLote`, `consultarCancelamentoLote`, `dadosPostagem` |
 | `rotulo()` | `solicitar($token, SolicitacaoRotulo): ReciboRotulo`, `baixar($token, $recibo): ArquivoRotulo`, `obter($token, SolicitacaoRotulo, $recibo = null): TentativaRotulo` |
 | `dce()` | `imprimirDace($token, SolicitacaoDace): Dace`, `atualizarDocumentoFiscal($token, $codigoObjeto, $chave, $numeroNota)` |
-| `rastro()` | `rastrear($token, $codigo)` (todos os eventos), `rastrearVarios($token, [...])` (até 50, último evento) |
+| `rastro()` | `rastrear($token, $codigo)` (todos os eventos), `rastrearVarios($token, [...])` (até 50, último evento), `arDigital($token, $codigo)`, `arDigitalVarios($token, [...])` (até 10) |
 | `etiquetas()` | ZPL sem chamada à API — ver [Etiquetas](#etiquetas) |
 
 Exemplos executáveis de cada módulo em [`exemplos/`](exemplos) (credenciais por variáveis de ambiente).
@@ -385,6 +385,28 @@ $mapa = ['BDE-20' => SituacaoRastreamento::EmTransito];   // ex.: tratar "cartei
 $situacao = $rastreamento->situacao($mapa);
 if ($situacao->finalizada()) { /* entregue, devolvido ou cancelado: pare de consultar */ }
 ```
+
+**AR Digital:** a imagem do aviso de recebimento digitalizado de objetos postados com o adicional AR Digital
+(`ARDIG`, `CategoriaServicoAdicional::AvisoRecebimentoDigital`) e já entregues. `arDigital()` devolve um
+`Respostas\ArDigital`; `arDigitalVarios()`, um por código, na ordem pedida (até 10). Objeto sem imagem **não lança
+erro**: vem com `disponivel()` falso e o motivo em `codigoErro`/`mensagem` (`SRO-009` objeto de outro contrato,
+`SRO-020` não localizado). Pedir o conteúdo de um objeto sem imagem lança `ErroApi`.
+
+```php
+$ar = $correios->rastro()->arDigital($token, $codigoObjeto);
+if ($ar->disponivel()) {
+    $ar->salvar("/tmp/ar-{$ar->codigoObjeto}.{$ar->extensao()}");   // jpg, png, gif, tif, pdf ou bin
+    $html = '<img src="' . $ar->dataUri() . '" alt="AR Digital">';    // ou conteudoBinario() / conteudoBase64()
+    $quando = $ar->dataBaixa;                                          // data da baixa (entrega)
+} elseif ($ar->codigoErro === 'SRO-009') {
+    // objeto de outro contrato
+}
+```
+
+O tipo vem do `contentType` da API ou, sem ele, dos primeiros bytes da imagem (`tipoMime()`). O Base64 não vai para
+o log nem para `respostaBruta()`. Só se aplica ao AR Digital: o AR convencional (`001`) e o AR Eletrônico (`021`) não
+têm imagem nesta API, e os dados do recebedor desses dois ficam na API AR Eletrônico e no Sistema e-AR (fora do
+componente).
 
 **DCe e DACE:** sem nota fiscal, crie a pré-postagem com os itens e `emiteDCe: true` e imprima a DACE:
 `TipoDace::Completa`/`Resumida` devolvem PDF (`conteudoBinario()`); `TipoDace::Termica` devolve texto para a
@@ -718,12 +740,17 @@ Pontos não testados, instáveis ou observados de forma diferente da especifica�
 - **Layouts de rótulo:** o `PADRAO` foi obtido em homologação (11/10/2026). `Linear100x150`, os demais lineares e
   `tipoRotulo = R` não foram testados; o teste de integração 11 pede o `Linear100x150` e grava o PDF em
   `build/homologacao/`.
+- **AR Digital:** em homologação (02/11/2026) o endpoint respondeu como especificado, mas o contrato de teste não tem
+  objeto com AR Digital: a imagem em si não foi obtida. Os valores reais de `contentType` e `formato` não são
+  conhecidos; por isso o tipo também é identificado pelos bytes. A lista de objetos vai em parâmetros repetidos
+  (`objetos=A&objetos=B`), que a API aceitou tanto quanto a forma separada por vírgula.
 - **Rejeição 812 (contribuinte do ICMS):** a verificação começa em 02/11/2026 e a resposta da API ainda não foi
   observada; o componente reconhece a rejeição pelo texto. A API não tem campo para as dispensas do Ajuste SINIEF
   nº 35/2026.
 - **Endpoints HTML** de declaração de conteúdo e AR falham no servidor de homologação e não fazem parte do componente.
 - **Fora do escopo desta versão:** Webhook, autenticação por contrato ou só por usuário, agências, faturas, faixas de
-  etiquetas, Pedido de Informação, serviços internacionais, lote de objetos simples, imagens de entrega e AR Digital.
+  etiquetas, Pedido de Informação, serviços internacionais, lote de objetos simples, imagens de entrega (fotos de
+  baixa) e API AR Eletrônico.
 - **DataMatrix:** os campos `ServicosAdicionais` (`250000000000`), `ValorDeclarado`, telefone e `IDV` seguem o
   sistema antigo, sem o manual de etiquetas dos Correios; são configuráveis. A leitura por equipamento dos Correios
   não foi testada.

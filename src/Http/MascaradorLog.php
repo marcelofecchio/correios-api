@@ -12,7 +12,7 @@ namespace MarceloFecchio\Correios\Http;
  * - dados pessoais: dentro de `remetente`, `destinatario`, `recebedor` e `entregadorExterno` só ficam CEP, cidade,
  *   UF, país e região (nome, endereço, telefones e e-mail viram `***`); e-mail, telefones, coordenadas, comentários e
  *   observações do destinatário viram `***` em qualquer lugar;
- * - conteúdo Base64 de rótulos e DACE (`dados`): omitido, fica só o tamanho.
+ * - conteúdo Base64 de rótulos, DACE (`dados`) e AR Digital (`imagemBase64`): omitido, fica só o tamanho.
  *
  * @internal
  */
@@ -20,7 +20,7 @@ final class MascaradorLog
 {
     private const array CHAVES_SEGREDO = ['token', 'codigoacesso', 'codigo_acesso', 'senha', 'password', 'authorization'];
     private const array CHAVES_DOCUMENTO = ['cpfcnpj', 'cpf', 'cnpj', 'documento', 'numeroexternocliente', 'usuario'];
-    private const array CHAVES_CONTEUDO = ['dados'];
+    private const array CHAVES_CONTEUDO = ['dados', 'imagembase64'];
     private const array CHAVES_PESSOA = ['remetente', 'destinatario', 'recebedor', 'entregadorexterno'];
     private const array CHAVES_PESSOAIS = ['email', 'telefone', 'celular', 'dddtelefone', 'dddcelular', 'telefones', 'latitude', 'longitude', 'comentario', 'obs', 'entregador', 'carteiro'];
     private const array CHAVES_LOCALIDADE = ['cep', 'cidade', 'uf', 'pais', 'regiao'];

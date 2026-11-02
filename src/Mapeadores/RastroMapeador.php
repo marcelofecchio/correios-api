@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarceloFecchio\Correios\Mapeadores;
 
+use MarceloFecchio\Correios\Respostas\ArDigital;
 use MarceloFecchio\Correios\Respostas\EventoRastreamento;
 use MarceloFecchio\Correios\Respostas\Rastreamento;
 
@@ -52,6 +53,25 @@ final class RastroMapeador
             tipoPostal: $objeto->filho('tipoPostal')->texto('nome'),
             dataPrevista: $objeto->data('dtPrevista'),
             bruto: $objeto->bruto(),
+        );
+    }
+
+    /** Item `ArDigitalTO`. Sem `resultadoProcessamento`, o sucesso é a presença da imagem. */
+    public static function arDigital(Leitor $item): ArDigital
+    {
+        $resultado = $item->filho('resultadoProcessamento');
+        $imagem = $item->texto('imagemBase64');
+
+        return new ArDigital(
+            codigoObjeto: (string) $item->texto('objeto'),
+            sucesso: ($resultado->booleano('sucesso') ?? true) && $imagem !== null,
+            codigoErro: $resultado->texto('codigo'),
+            mensagem: $resultado->texto('resultado'),
+            dataBaixa: $item->data('dataBaixa'),
+            contentType: $item->texto('contentType'),
+            formato: $item->texto('formato'),
+            base64: $imagem !== null ? (string) preg_replace('/\s+/', '', $imagem) : null,
+            bruto: $item->bruto(),
         );
     }
 }

@@ -11,6 +11,7 @@ use MarceloFecchio\Correios\Enums\ResultadoRastreamento;
 use MarceloFecchio\Correios\Excecoes\ErroApi;
 use MarceloFecchio\Correios\Excecoes\ErroConfiguracao;
 use MarceloFecchio\Correios\Excecoes\ErroValidacao;
+use MarceloFecchio\Correios\Respostas\ArDigital;
 use MarceloFecchio\Correios\Respostas\ResultadoPrazo;
 use MarceloFecchio\Correios\Respostas\ResultadoPreco;
 
@@ -287,5 +288,103 @@ describe('Rastro', function (): void {
         $rastreamento = correiosTeste(clienteMock(respostaJson(200, ['objetos' => []])))->rastro()->rastrear(tokenTeste(), 'AB043180865BR');
 
         expect($rastreamento->encontrado())->toBeFalse()->and($rastreamento->codigoObjeto)->toBe('AB043180865BR');
+    });
+});
+
+describe('AR Digital', function (): void {
+    it('consulta até 10 objetos repetindo o parâmetro e devolve na ordem pedida', function (): void {
+        $cliente = clienteMock(respostaFixture(200, 'ar_digital.json'));
+        $lista = correiosTeste($cliente)->rastro()->arDigitalVarios(tokenTeste(), ['dg 049 186 226 br', 'AB043180865BR', 'AK039775832BR', 'AB043180865BR', '']);
+        $requisicao = ultimaRequisicao($cliente);
+
+        expect($requisicao->getMethod())->toBe('GET')
+            ->and((string) $requisicao->getUri())->toBe('https://apihom.correios.com.br/srorastro/v1/ar-digital?objetos=DG049186226BR&objetos=AB043180865BR&objetos=AK039775832BR')
+            ->and(array_map(fn(ArDigital $ar): string => $ar->codigoObjeto, $lista))->toBe(['DG049186226BR', 'AB043180865BR', 'AK039775832BR'])
+            ->and(array_map(fn(ArDigital $ar): bool => $ar->disponivel(), $lista))->toBe([false, true, false])
+            ->and($lista[0]->codigoErro)->toBe('SRO-009')
+            ->and($lista[0]->mensagem)->toBe('SRO-009: Objeto não pertence ao contrato')
+            ->and($lista[2]->codigoErro)->toBe('SRO-020');
+    });
+
+    it('entrega a imagem decodificada, com tipo, extensão, data URI e gravação', function (): void {
+        $ar = correiosTeste(clienteMock(respostaFixture(200, 'ar_digital.json')))->rastro()->arDigital(tokenTeste(), 'AB043180865BR');
+        $arquivo = sys_get_temp_dir() . '/ar-digital-teste-' . uniqid() . '.' . $ar->extensao();
+        $ar->salvar($arquivo);
+
+        expect($ar->disponivel())->toBeTrue()
+            ->and($ar->sucesso)->toBeTrue()
+            ->and($ar->dataBaixa?->format('Y-m-d H:i'))->toBe('2026-10-30 14:25')
+            ->and($ar->formato)->toBe('JPG')
+            ->and(str_starts_with($ar->conteudoBinario(), "\xFF\xD8\xFF"))->toBeTrue()
+            ->and($ar->tamanhoBytes())->toBe(strlen($ar->conteudoBinario()))
+            ->and($ar->tipoMime())->toBe('image/jpeg')
+            ->and($ar->extensao())->toBe('jpg')
+            ->and($ar->dataUri())->toStartWith('data:image/jpeg;base64,/9j/')
+            ->and(file_get_contents($arquivo))->toBe($ar->conteudoBinario())
+            ->and($ar->respostaBruta()['imagemBase64'])->toMatch('/^\[\d+ caracteres em Base64\]$/');
+        unlink($arquivo);
+    });
+
+    it('identifica o tipo pelos primeiros bytes quando falta o contentType', function (string $bytes, ?string $contentType, string $mime, string $extensao): void {
+        $ar = new ArDigital('AB043180865BR', true, contentType: $contentType, base64: base64_encode($bytes . 'resto'));
+
+        expect($ar->tipoMime())->toBe($mime)->and($ar->extensao())->toBe($extensao);
+    })->with([
+        'png' => ["\x89PNG\r\n\x1a\n", null, 'image/png', 'png'],
+        'gif' => ['GIF89a', '', 'image/gif', 'gif'],
+        'tiff' => ["II*\x00", 'tipo desconhecido', 'image/tiff', 'tif'],
+        'pdf' => ['%PDF-1.4', null, 'application/pdf', 'pdf'],
+        'outro' => ['xyz', null, 'application/octet-stream', 'bin'],
+        'image/jpg informado' => ['xyz', 'image/jpg; charset=binary', 'image/jpeg', 'jpg'],
+    ]);
+
+    it('lança ErroApi ao pedir a imagem de um objeto sem AR Digital', function (): void {
+        $ar = correiosTeste(clienteMock(respostaFixture(200, 'ar_digital.json')))->rastro()->arDigital(tokenTeste(), 'DG049186226BR');
+
+        expect($ar->disponivel())->toBeFalse()
+            ->and(fn() => $ar->conteudoBinario())->toThrow(ErroApi::class, 'SRO-009')
+            ->and(fn() => $ar->salvar(sys_get_temp_dir() . '/nao-grava.jpg'))->toThrow(ErroApi::class, 'não tem imagem')
+            ->and(fn() => new ArDigital('AB043180865BR', true, base64: '%%%')->conteudoBinario())->toThrow(ErroApi::class, 'Base64');
+        try {
+            $ar->conteudoBase64();
+        } catch (ErroApi $e) {
+            expect($e->codigoErro)->toBe('SRO-009')->and($e->mensagens)->toBe(['SRO-009: Objeto não pertence ao contrato']);
+        }
+    });
+
+    it('trata objeto ausente da resposta e item sem resultadoProcessamento', function (): void {
+        $cliente = clienteMock(
+            respostaJson(200, []),
+            respostaJson(200, [['objeto' => 'AB043180865BR', 'imagemBase64' => "/9j/\n4AAQ"], ['objeto' => 'AK039775832BR']]),
+        );
+        $rastro = correiosTeste($cliente)->rastro();
+        $ausente = $rastro->arDigital(tokenTeste(), 'AB043180865BR');
+        $lista = $rastro->arDigitalVarios(tokenTeste(), ['AB043180865BR', 'AK039775832BR']);
+
+        expect($ausente->disponivel())->toBeFalse()
+            ->and($ausente->mensagem)->toBe('Objeto não retornado pela API.')
+            ->and($lista[0]->disponivel())->toBeTrue()
+            ->and($lista[0]->conteudoBase64())->toBe('/9j/4AAQ')
+            ->and($lista[1]->disponivel())->toBeFalse()
+            ->and($lista[1]->sucesso)->toBeFalse();
+    });
+
+    it('valida a quantidade e o formato dos códigos antes de chamar a API', function (array $codigos, string $mensagem): void {
+        $cliente = clienteMock();
+        expect(fn() => correiosTeste($cliente)->rastro()->arDigitalVarios(tokenTeste(), $codigos))->toThrow(ErroValidacao::class, $mensagem)
+            ->and($cliente->getRequests())->toBe([]);
+    })->with([
+        'vazia' => [['', ' '], '1 a 10'],
+        'onze' => [array_map(fn(int $i): string => sprintf('AB%09dBR', $i), range(1, 11)), '1 a 10'],
+        'formato' => [['XX123'], 'fora do formato'],
+    ]);
+
+    it('lê o erro 400 da API e a resposta fora do formato', function (): void {
+        $cliente = clienteMock(respostaFixture(400, 'erro_ar_digital_400.json'), respostaJson(200, ['msgs' => ['SRO-099: falha']]), respostaJson(200, ['outro' => 'x']));
+        $rastro = correiosTeste($cliente)->rastro();
+
+        expect(fn() => $rastro->arDigital(tokenTeste(), 'AB043180865BR'))->toThrow(ErroApi::class, 'SRO-021')
+            ->and(fn() => $rastro->arDigital(tokenTeste(), 'AB043180865BR'))->toThrow(ErroApi::class, 'SRO-099')
+            ->and(fn() => $rastro->arDigital(tokenTeste(), 'AB043180865BR'))->toThrow(ErroApi::class, 'lista de objetos');
     });
 });

@@ -193,6 +193,14 @@ it('10 rastreia um objeto de exemplo da documentação', function (): void {
     expect($rastreamento?->codigoObjeto)->toBe('DG049186226BR');
 });
 
+it('10b consulta o AR Digital (o objeto de exemplo é de outro contrato: SRO-009)', function (): void {
+    $ar = correiosHomologacao()?->rastro()->arDigital(tokenHomologacao(), 'DG049186226BR');
+
+    expect($ar?->codigoObjeto)->toBe('DG049186226BR')
+        ->and($ar?->disponivel())->toBeFalse()
+        ->and($ar?->codigoErro)->toBe('SRO-009');
+});
+
 it('11 tenta obter o rótulo linear 100x150 com observação e cancela', function (): void {
     $correios = correiosHomologacao();
     $token = tokenHomologacao();

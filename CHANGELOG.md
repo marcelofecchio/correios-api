@@ -5,6 +5,19 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Adicionado
+
+- Imagem do AR Digital (`GET /srorastro/v1/ar-digital`): `rastro()->arDigital($token, $codigo)` e
+  `rastro()->arDigitalVarios($token, [...])` (até 10 objetos, na ordem pedida). `Respostas\ArDigital` traz
+  `disponivel()`, `codigoErro`/`mensagem` (ex.: `SRO-009`, `SRO-020`), `dataBaixa`, `conteudoBinario()`,
+  `conteudoBase64()`, `tipoMime()` (do `contentType` ou dos primeiros bytes), `extensao()`, `dataUri()` e `salvar()`.
+- Exemplo `exemplos/17-ar-digital.php` e teste de integração 10b.
+
+### Alterado
+
+- O log omite o Base64 de `imagemBase64`, como já fazia com `dados`.
+- AR Digital saiu da lista "fora do escopo" do README; imagens de entrega (fotos de baixa) continuam fora.
+
 ## [0.5.0] - 2026-10-16
 
 Rejeição 812 da DC-e para remetente contribuinte do ICMS, que a SEFAZ passa a verificar em 02/11/2026 (comunicado dos

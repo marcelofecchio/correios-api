@@ -3623,6 +3623,11 @@ Resposta 200:
 6. **Ordem dos eventos:** não assuma a ordem da lista; ordene por `dtHrCriado` quando precisar do mais recente.
 7. **Imagens de baixa (assíncrono):** `POST /v1/objetos/imagens` com a lista de códigos → resposta `202` com um `Recibo` (`numero`, `dtValidade`). Depois consulte `GET /v1/recibo/{numero}` até obter o resultado, respeitando a `dtValidade` do recibo e com intervalo entre as tentativas.
 8. **AR Digital:** `GET /v1/ar-digital?objetos=A,B` (máx. 10) retorna a imagem do AR quando existir — só se aplica a objetos postados com o serviço de AR Digital.
+   ✔ **Observado em homologação (02/11/2026, especificação 3.9.0, sem mudança no endpoint):**
+   - HTTP **200** com um item por objeto, mesmo sem imagem. O motivo vem em `resultadoProcessamento`: `{"sucesso": false, "codigo": "SRO-009", "resultado": "SRO-009: Objeto não pertence ao contrato"}` ou `SRO-020` (não localizamos informações para o código informado). Os campos `dataBaixa`, `contentType`, `imagemBase64` e `formato` não vêm nesses casos.
+   - A lista é aceita separada por vírgula (`objetos=A,B`) **e** em parâmetros repetidos (`objetos=A&objetos=B`).
+   - HTTP **400** (`MessageResponse`): `SRO-019: Objeto inválido` (formato), `SRO-021: Lista de objetos deve ter tamanho entre 1 e 10` e `CMN-009: Parâmetro obrigatório não informado: objetos`.
+   - Nenhum objeto do contrato de teste tem AR Digital: a imagem e os valores reais de `contentType`/`formato` ainda não foram vistos.
 9. **Frequência de consulta:** rastreamento não muda a cada minuto — agende atualizações periódicas (ex.: a cada algumas horas) e pare de consultar objetos já entregues ou devolvidos.
 10. **Ambientes:** mantenha a URL base configurável (homologação × produção). Em homologação, os objetos de teste podem não ter eventos reais.
 11. ✔ **Observado em homologação (04/10/2026):**

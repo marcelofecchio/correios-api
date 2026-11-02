@@ -1,0 +1,8 @@
+{
+    "msgs": [
+        "SRO-021: Lista de objetos deve ter tamanho entre 1 e 10"
+    ],
+    "date": "2026-11-02T19:13:34",
+    "path": "uri=/srorastro/v1/ar-digital",
+    "causa": "ConstraintViolationException: consultaArDigital.objetos: SRO-021: Lista de objetos deve ter tamanho entre 1 e 10"
+}
