@@ -5,6 +5,10 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.0] - 2026-11-02
+
+Imagem do AR Digital pela API Rastro e adicional Isento Doc Fiscal (082) para remessas dispensadas da DC-e.
+
 ### Adicionado
 
 - Imagem do AR Digital (`GET /srorastro/v1/ar-digital`): `rastro()->arDigital($token, $codigo)` e
@@ -159,7 +163,8 @@ Primeira versão.
 - **Template de postagem:** o campo cidade/UF do destinatário foi movido de x=200 para x=212 para não encostar no CEP
   em 300 dpi (conferido no Labelary).
 
-[Não lançado]: https://github.com/marcelofecchio/correios-api/compare/v0.5.0...HEAD
+[Não lançado]: https://github.com/marcelofecchio/correios-api/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/marcelofecchio/correios-api/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/marcelofecchio/correios-api/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/marcelofecchio/correios-api/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/marcelofecchio/correios-api/compare/v0.2.0...v0.3.0
