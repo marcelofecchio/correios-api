@@ -20,10 +20,21 @@ final readonly class ServicoAdicional
     /** AR Convencional (arquivo 06: "O objeto consultado não possui o serviço AR Convencional 001 associado"). */
     public const string AVISO_RECEBIMENTO = '001';
 
+    /** Isento Doc Fiscal: postagem dispensada da DC-e pelo Ajuste SINIEF nº 35/2026 (comunicado de 27/10/2026). */
+    public const string ISENTO_DOC_FISCAL = '082';
+
     public string $codigo;
 
-    public function __construct(string $codigo, public ?int $valorDeclaradoCentavos = null)
-    {
+    /**
+     * @param ?string $tipo `tipoServicoAdicional`, enviado só quando informado (a API o preenche sozinha)
+     * @param ?string $nome `nomeServicoAdicional`, idem
+     */
+    public function __construct(
+        string $codigo,
+        public ?int $valorDeclaradoCentavos = null,
+        public ?string $tipo = null,
+        public ?string $nome = null,
+    ) {
         $codigo = trim($codigo);
         if (preg_match('/^\d{3}$/', $codigo) !== 1) {
             throw ErroValidacao::campo('servicoAdicional.codigo', sprintf('"%s" inválido: informe o código com 3 dígitos.', $codigo));
@@ -38,6 +49,17 @@ final readonly class ServicoAdicional
     public static function avisoRecebimento(): self
     {
         return new self(self::AVISO_RECEBIMENTO);
+    }
+
+    /**
+     * Isento Doc Fiscal (082): postagem dispensada da DC-e e da NF-e pela legislação (documentos em papel, bens com
+     * documento exigido por lei ou de órgão público, remessas internacionais com documentação aduaneira, amostras para
+     * exame). Vai com o tipo e o nome, como no comunicado dos Correios. Os itens da declaração de conteúdo continuam
+     * obrigatórios, e a dispensa é responsabilidade do remetente: o código não é uma validação fiscal dos Correios.
+     */
+    public static function isentoDocFiscal(): self
+    {
+        return new self(self::ISENTO_DOC_FISCAL, tipo: 'ISENTO_DOC_FISCAL', nome: 'Isento Doc Fiscal');
     }
 
     /**
@@ -75,11 +97,20 @@ final readonly class ServicoAdicional
             throw ErroValidacao::campo('servicoAdicional.valorDeclarado', sprintf('informe o valor declarado do adicional %s.', $disponivel->codigo));
         }
 
+        if ($disponivel->categoria() === CategoriaServicoAdicional::IsentoDocFiscal) {
+            return self::isentoDocFiscal();
+        }
+
         return new self($disponivel->codigo, $valorDeclaradoCentavos);
     }
 
     public function ehValorDeclarado(): bool
     {
         return $this->valorDeclaradoCentavos !== null;
+    }
+
+    public function ehIsentoDocFiscal(): bool
+    {
+        return $this->codigo === self::ISENTO_DOC_FISCAL;
     }
 }

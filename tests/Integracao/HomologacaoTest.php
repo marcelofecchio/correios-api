@@ -187,6 +187,23 @@ it('06 a 09 cria a pré-postagem, baixa o rótulo e cancela', function (): void 
     expect($cancelamento?->respostaBruta())->toBeArray();
 });
 
+it('09b cria pré-postagem isenta de documento fiscal (adicional 082) e cancela', function (): void {
+    $correios = correiosHomologacao();
+    $token = tokenHomologacao();
+    $criada = $correios?->prePostagem()->criar($token, new NovaPrePostagem(
+        destinatario: new MarceloFecchio\Correios\Dto\Pessoa('Maria Aparecida Souza', new MarceloFecchio\Correios\Dto\Endereco('01001000', 'Praça da Sé', '100', 'Sé', 'São Paulo', 'SP'), '52998224725'),
+        servico: 'sedex',
+        volume: new Volume(300, FormatoObjeto::CaixaPacote, 30, 20, 5),
+        itens: [new Item('Contrato assinado', 1, 100)],
+        adicionais: [ServicoAdicional::isentoDocFiscal()],
+    ));
+    $adicionais = array_column($criada?->respostaBruta()['listaServicoAdicional'] ?? [], 'codigoServicoAdicional');
+    $correios?->prePostagem()->cancelar($token, $criada?->id ?? '');
+
+    expect($criada?->id)->toStartWith('PR')
+        ->and($adicionais)->toContain('082');
+});
+
 it('10 rastreia um objeto de exemplo da documentação', function (): void {
     $rastreamento = correiosHomologacao()?->rastro()->rastrear(tokenHomologacao(), 'DG049186226BR');
 

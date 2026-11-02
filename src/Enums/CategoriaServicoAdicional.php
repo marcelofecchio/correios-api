@@ -20,7 +20,8 @@ use MarceloFecchio\Correios\Utilitarios\Texto;
  *
  * Confirmado em homologação (11/10/2026, SEDEX 03220, PAC 03298, SEDEX REVERSO 03247 e PAC REVERSO 03301):
  * `001` AR, `021` EAR, `037` ARDIG, `002` MP, `019` VD (SEDEX), `064` VDS (PAC) e `095` AP ("ARTIGOS PERIGOSOS
- * ANAC"). A sigla exata tem prioridade; sem ela, a categoria vem do nome.
+ * ANAC"). Em 02/11/2026, também `082` IDFI ("ISENTO DOC FISCAL") no SEDEX e no PAC. A sigla exata tem prioridade;
+ * sem ela, a categoria vem do nome.
  */
 enum CategoriaServicoAdicional: string
 {
@@ -31,6 +32,8 @@ enum CategoriaServicoAdicional: string
     case MaoPropria = 'MP';
     case ValorDeclarado = 'VD';
     case ArtigosPerigosos = 'AP';
+    /** Isento Doc Fiscal (`082`): postagem dispensada da DC-e. */
+    case IsentoDocFiscal = 'IDFI';
 
     /** Categoria de um adicional devolvido pela API, ou null se não for nenhuma destas. */
     public static function de(ServicoAdicionalDisponivel $adicional): ?self
@@ -43,6 +46,7 @@ enum CategoriaServicoAdicional: string
             'MP' => self::MaoPropria,
             'VD', 'VDS' => self::ValorDeclarado,
             'AP', 'DGR' => self::ArtigosPerigosos,
+            'IDFI' => self::IsentoDocFiscal,
             default => null,
         };
         if ($porSigla !== null) {
@@ -58,6 +62,7 @@ enum CategoriaServicoAdicional: string
             str_contains($nome, 'AVISO DE RECEBIMENTO') && str_contains($nome, 'DIGITAL') => self::AvisoRecebimentoDigital,
             str_contains($nome, 'AVISO DE RECEBIMENTO') => self::AvisoRecebimento,
             str_contains($nome, 'PERIGOS') => self::ArtigosPerigosos,
+            str_contains($nome, 'ISENTO DOC') => self::IsentoDocFiscal,
             default => null,
         };
     }

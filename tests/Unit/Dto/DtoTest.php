@@ -193,6 +193,26 @@ describe('NovaPrePostagem', function (): void {
         new NovaPrePostagem(destinatario: clienteTeste(), servico: 'sedex', volume: $volume);
     })->throws(ErroValidacao::class, 'documentoFiscal');
 
+    it('aceita o Isento Doc Fiscal (082) com itens e sem emiteDCe', function () use ($volume): void {
+        $isenta = new NovaPrePostagem(clienteTeste(), 'sedex', $volume, itens: [new Item('Contrato assinado', 1, 100)], adicionais: [ServicoAdicional::isentoDocFiscal()]);
+
+        expect($isenta->isentoDocFiscal())->toBeTrue()
+            ->and(new NovaPrePostagem(clienteTeste(), 'sedex', $volume, itens: [new Item('Livro', 1, 1000)])->isentoDocFiscal())->toBeFalse();
+    });
+
+    it('recusa o Isento Doc Fiscal (082) sem itens ou com emiteDCe', function (array $dados, string $campo) use ($volume): void {
+        expect(fn() => new NovaPrePostagem(...array_merge([
+            'destinatario' => clienteTeste(),
+            'servico' => 'sedex',
+            'volume' => $volume,
+            'adicionais' => [ServicoAdicional::isentoDocFiscal()],
+        ], $dados)))->toThrow(ErroValidacao::class, $campo);
+    })->with([
+        'sem itens' => [[], 'itens'],
+        'sem itens, só com a chave' => [['chaveNFe' => '35261011222333000181550020000214861123456788'], 'itens'],
+        'com emiteDCe' => [['itens' => [new Item('Contrato assinado', 1, 100)], 'emiteDCe' => true], 'emiteDCe'],
+    ]);
+
     it('aceita chave da NF-e, número da nota ou itens', function () use ($volume): void {
         $comChave = new NovaPrePostagem(clienteTeste(), 'sedex', $volume, chaveNFe: '35261011222333000181550020000214861123456788');
         $comNota = new NovaPrePostagem(clienteTeste(), 'sedex', $volume, numeroNotaFiscal: '1234');

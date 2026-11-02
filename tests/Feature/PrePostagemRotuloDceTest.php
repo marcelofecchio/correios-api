@@ -535,6 +535,24 @@ describe('DC-e e remetente contribuinte do ICMS (Rejeição 812)', function (): 
         'Contribuinte de ICMS informado',
     ]);
 
+    it('envia o Isento Doc Fiscal (082) com tipo e nome, inclusive para remetente contribuinte', function (): void {
+        $cliente = clienteMock(respostaFixture(200, 'prepostagem_criada.json'));
+        $contribuinte = new Pessoa('Loja Teste Homologacao Ltda', lojaTeste()->endereco, CNPJ_TESTE, contribuinteIcms: true);
+        correiosTeste($cliente)->prePostagem()->criar(tokenTeste(), novaPrePostagemSedex([
+            'remetente' => $contribuinte,
+            'itens' => [Item::comValor('Contrato assinado', 1, '1,00')],
+            'adicionais' => [ServicoAdicional::avisoRecebimento(), ServicoAdicional::isentoDocFiscal()],
+        ]));
+        $corpo = corpoJson(ultimaRequisicao($cliente));
+
+        expect($corpo['listaServicoAdicional'])->toBe([
+            ['codigoServicoAdicional' => '001'],
+            ['codigoServicoAdicional' => '082', 'tipoServicoAdicional' => 'ISENTO_DOC_FISCAL', 'nomeServicoAdicional' => 'Isento Doc Fiscal'],
+        ])
+            ->and($corpo)->not->toHaveKey('emiteDCe')
+            ->and($corpo['itensDeclaracaoConteudo'])->toBe([['conteudo' => 'Contrato assinado', 'quantidade' => '1', 'valor' => '1.00']]);
+    });
+
     it('aponta a rejeição no motivoCancelamento e no processamento assíncrono', function () use ($rejeicao): void {
         $cliente = clienteMock(
             respostaJson(200, ['id' => 'PR1', 'statusAtual' => 5, 'codigoObjeto' => 'AB043180865BR', 'motivoCancelamento' => $rejeicao]),

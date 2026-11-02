@@ -12,11 +12,19 @@ e o projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/).
   `disponivel()`, `codigoErro`/`mensagem` (ex.: `SRO-009`, `SRO-020`), `dataBaixa`, `conteudoBinario()`,
   `conteudoBase64()`, `tipoMime()` (do `contentType` ou dos primeiros bytes), `extensao()`, `dataUri()` e `salvar()`.
 - Exemplo `exemplos/17-ar-digital.php` e teste de integração 10b.
+- Adicional **Isento Doc Fiscal (082)** para remessas dispensadas da DC-e (comunicado dos Correios de 27/10/2026 em
+  `doc/comunicados/2026-10-isento-doc-fiscal-082.md`): `ServicoAdicional::isentoDocFiscal()` (envia código, tipo e
+  nome), `ServicoAdicional::ISENTO_DOC_FISCAL`, `ehIsentoDocFiscal()`, `CategoriaServicoAdicional::IsentoDocFiscal`
+  (sigla `IDFI`) e `NovaPrePostagem::isentoDocFiscal()`. O 082 com `emiteDCe` ou sem itens é recusado com
+  `ErroValidacao`. Teste de integração 09b.
+- `ServicoAdicional` aceita `tipo` e `nome` opcionais (`tipoServicoAdicional` e `nomeServicoAdicional`).
 
 ### Alterado
 
 - O log omite o Base64 de `imagemBase64`, como já fazia com `dados`.
 - AR Digital saiu da lista "fora do escopo" do README; imagens de entrega (fotos de baixa) continuam fora.
+- README, seção "DC-e e remetente contribuinte do ICMS": remessas dispensadas vão com o 082, e o envio com NF-e passa
+  a incluir os itens (a homologação recusa só a chave com `PPN-347` desde 02/11/2026).
 
 ## [0.5.0] - 2026-10-16
 

@@ -273,6 +273,8 @@ final class PrePostagemMapeador
     {
         return self::semNulos([
             'codigoServicoAdicional' => $adicional->codigo,
+            'tipoServicoAdicional' => $adicional->tipo,
+            'nomeServicoAdicional' => $adicional->nome,
             'valorDeclarado' => $adicional->valorDeclaradoCentavos !== null ? Dinheiro::formatarApi($adicional->valorDeclaradoCentavos) : null,
         ]);
     }

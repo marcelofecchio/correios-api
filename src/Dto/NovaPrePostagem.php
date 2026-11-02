@@ -14,7 +14,9 @@ use MarceloFecchio\Correios\Utilitarios\Texto;
 /**
  * Dados para criar uma pré-postagem (síncrona ou assíncrona).
  *
- * Documento fiscal: informe `chaveNFe`, `numeroNotaFiscal` ou ao menos um item da declaração de conteúdo.
+ * Documento fiscal: informe `chaveNFe`, `numeroNotaFiscal` ou ao menos um item da declaração de conteúdo. Remessa
+ * dispensada da DC-e (documentos em papel, entre outras): adicional `ServicoAdicional::isentoDocFiscal()` (082) com os
+ * itens da declaração, sem `emiteDCe`.
  *
  * Logística reversa: o **remetente é o cliente que devolve** (com e-mail, obrigatório) e o **destinatário é a
  * loja**. Nesse caso `remetente` não pode ficar nulo (o remetente padrão da configuração é a loja).
@@ -89,6 +91,13 @@ final readonly class NovaPrePostagem
         }
         $this->numeroNotaFiscal = $numero !== '' ? $numero : null;
 
+        $isento = $this->isentoDocFiscal();
+        if ($isento && $emiteDCe) {
+            throw ErroValidacao::campo('emiteDCe', 'o adicional 082 (Isento Doc Fiscal) indica remessa dispensada da DC-e: não use emiteDCe junto com ele.');
+        }
+        if ($isento && $this->itens === []) {
+            throw ErroValidacao::campo('itens', 'com o adicional 082 (Isento Doc Fiscal), informe os itens da declaração de conteúdo (ex.: "Documentos").');
+        }
         if ($this->chaveNFe === null && $this->numeroNotaFiscal === null && $this->itens === []) {
             throw ErroValidacao::campo('documentoFiscal', 'informe a chave da NF-e, o número da nota fiscal ou os itens da declaração de conteúdo.');
         }
@@ -113,6 +122,18 @@ final readonly class NovaPrePostagem
             $codigoObjetoIda === null || trim($codigoObjetoIda) === '' => null,
             default => new CodigoRastreamento($codigoObjetoIda),
         };
+    }
+
+    /** Tem o adicional 082 (Isento Doc Fiscal): remessa dispensada da DC-e. */
+    public function isentoDocFiscal(): bool
+    {
+        foreach ($this->adicionais as $adicional) {
+            if ($adicional->ehIsentoDocFiscal()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function textoLimitado(string $campo, ?string $valor, int $maximo): ?string

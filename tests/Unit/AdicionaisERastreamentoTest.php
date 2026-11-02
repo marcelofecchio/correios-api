@@ -43,6 +43,8 @@ describe('CategoriaServicoAdicional', function (): void {
         'ARDIG pela sigla' => [adicionalDisponivel('037', 'AVISO DE RECEBIMENTO DIGITAL', 'ARDIG'), CategoriaServicoAdicional::AvisoRecebimentoDigital],
         'AR eletrônico pelo nome' => [adicionalDisponivel('021', 'Aviso de Recebimento Eletrônico'), CategoriaServicoAdicional::AvisoRecebimentoEletronico],
         'AR digital pelo nome' => [adicionalDisponivel('037', 'AVISO DE RECEBIMENTO DIGITAL'), CategoriaServicoAdicional::AvisoRecebimentoDigital],
+        'IDFI (homologação, 02/11/2026)' => [adicionalDisponivel('082', 'ISENTO DOC FISCAL', 'IDFI'), CategoriaServicoAdicional::IsentoDocFiscal],
+        'isento doc fiscal pelo nome' => [adicionalDisponivel('082', 'Isento Doc Fiscal'), CategoriaServicoAdicional::IsentoDocFiscal],
         'logística reversa' => [adicionalDisponivel('016', 'LOGISTICA REV SIMULTANEA VOLTA', 'LRSV'), null],
         'sem nome nem sigla' => [adicionalDisponivel('123', null), null],
     ]);
@@ -76,6 +78,17 @@ describe('CategoriaServicoAdicional', function (): void {
             ->and($mp->ehValorDeclarado())->toBeFalse()
             ->and(ServicoAdicional::maoPropria('002')->codigo)->toBe('002')
             ->and(fn() => ServicoAdicional::de(adicionalDisponivel('019', null, 'VD')))->toThrow(ErroValidacao::class, 'valor declarado');
+    });
+
+    it('monta o Isento Doc Fiscal (082) com tipo e nome, pelo atalho ou pelo disponível', function (): void {
+        $atalho = ServicoAdicional::isentoDocFiscal();
+        $doDisponivel = ServicoAdicional::de(adicionalDisponivel('082', 'ISENTO DOC FISCAL', 'IDFI'));
+
+        expect([$atalho->codigo, $atalho->tipo, $atalho->nome])->toBe(['082', 'ISENTO_DOC_FISCAL', 'Isento Doc Fiscal'])
+            ->and($atalho->ehIsentoDocFiscal())->toBeTrue()
+            ->and($doDisponivel)->toEqual($atalho)
+            ->and(new ServicoAdicional('082')->ehIsentoDocFiscal())->toBeTrue()
+            ->and(ServicoAdicional::avisoRecebimento()->ehIsentoDocFiscal())->toBeFalse();
     });
 });
 

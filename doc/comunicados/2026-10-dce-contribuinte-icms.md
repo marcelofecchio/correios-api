@@ -81,5 +81,6 @@ Pontos ainda não confirmados com os Correios:
 - **Formato da mensagem na API:** o comunicado traz só o texto da rejeição. O componente reconhece "Rejeição 812",
   "bloqueado para emissão de DC-e" e "[Contribuinte de ICMS]" em qualquer posição da mensagem, com ou sem prefixo
   `PPN-xxx:`. Registre aqui o corpo real da primeira resposta observada.
-- **Dispensas do Ajuste SINIEF nº 35/2026:** os Correios ainda estão adequando os sistemas. A API Pré-postagem
-  (versão 2.0.32) não tem campo para informar dispensa da DC-e; o componente não trata as dispensas de forma especial.
+- **Dispensas do Ajuste SINIEF nº 35/2026:** resolvido pelo adicional 082 (Isento Doc Fiscal), comunicado de
+  27/10/2026 em [2026-10-isento-doc-fiscal-082.md](2026-10-isento-doc-fiscal-082.md) e suportado pelo componente com
+  `ServicoAdicional::isentoDocFiscal()`.

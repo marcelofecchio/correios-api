@@ -4,6 +4,13 @@
 >
 > **Sequência de testes:** etapa 06 de 14 · Regras gerais (ambientes, autenticação, convenções): `correios-00-instrucoes-gerais.md` · Anterior: `correios-05-prazo-api.md` · Próxima: `correios-07-prepostagem-assincrona-registrados-api.md`
 
+
+> ✔ **Observado em homologação (02/11/2026):** adicional **082 – Isento Doc Fiscal** (sigla `IDFI`), para remessas
+> dispensadas da DC-e (comunicado em `../comunicados/2026-10-isento-doc-fiscal-082.md`). Aceito com
+> `itensDeclaracaoConteudo` e sem `emiteDCe`, enviando só `codigoServicoAdicional` ou também `tipoServicoAdicional:
+> "ISENTO_DOC_FISCAL"` e `nomeServicoAdicional: "Isento Doc Fiscal"`. Sem itens, a API responde **HTTP 400**
+> `PPN-347: É obrigatório informar Declaração de Conteúdo.`, inclusive com o 082 e com só a `chaveNFe`.
+
 ## 0. Resumo rápido
 
 | | |

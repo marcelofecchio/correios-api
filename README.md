@@ -264,14 +264,17 @@ para emissão de DC-e [Contribuinte de ICMS]**. A regra é das Secretarias de Fa
 O comunicado completo está em
 [`doc/comunicados/2026-10-dce-contribuinte-icms.md`](doc/comunicados/2026-10-dce-contribuinte-icms.md).
 
+Também a partir de **02/11/2026**, remessas dispensadas da DC-e pelo Ajuste SINIEF nº 35/2026 levam o adicional
+**Isento Doc Fiscal (082)**: `ServicoAdicional::isentoDocFiscal()`. Comunicado em
+[`doc/comunicados/2026-10-isento-doc-fiscal-082.md`](doc/comunicados/2026-10-isento-doc-fiscal-082.md).
+
 **Qual documento usar:**
 
 | Remetente | O que é enviado | Documento | Na `NovaPrePostagem` |
 |---|---|---|---|
-| Contribuinte do ICMS (inscrição estadual ativa) | Bens e mercadorias | **NF-e** | `chaveNFe` (e `numeroNotaFiscal`), **sem** `emiteDCe` |
-| Contribuinte do ICMS | Documentos em papel (contratos, correspondências) | A legislação não exige NF-e | `itens` (ex.: "Documentos"), **sem** `emiteDCe` |
+| Contribuinte do ICMS (inscrição estadual ativa) | Bens e mercadorias | **NF-e** | `chaveNFe` (e `numeroNotaFiscal`) + `itens`, **sem** `emiteDCe` |
+| Qualquer remetente | Remessa dispensada pelo Ajuste SINIEF nº 35/2026 (documentos em papel, bens com documento exigido por lei ou de órgão público, remessas internacionais com documentação aduaneira, amostras para exame) | Nenhum documento fiscal; o documento que a dispensa exigir segue com o objeto | `itens` + adicional `ServicoAdicional::isentoDocFiscal()` (082), **sem** `emiteDCe` |
 | Não contribuinte (pessoa física, empresa sem inscrição estadual) | Bens e mercadorias | **DC-e** | `itens` + `emiteDCe: true` |
-| Não contribuinte | Remessa dispensada pelo Ajuste SINIEF nº 35/2026 | O documento que a dispensa exige | Ver as dispensas no comunicado |
 
 **O que a aplicação deve fazer:**
 
@@ -283,13 +286,26 @@ O comunicado completo está em
 2. **Contribuinte: emita a NF-e antes da pré-postagem** e envie a chave de 44 dígitos em `chaveNFe`. Se a nota sair
    depois, crie a pré-postagem sem `emiteDCe` e informe a chave antes da postagem com
    `dce()->atualizarDocumentoFiscal()`. O objeto segue com o DANFE (o simplificado sai de
-   `etiquetas()->danfeSimplificada()`).
-3. **Contribuinte enviando documentos em papel:** a legislação não exige NF-e. Informe os itens da declaração de
-   conteúdo sem `emiteDCe`. Os Correios ainda estão adequando os sistemas às dispensas; confirme o procedimento com o
-   representante comercial.
-4. **Não contribuinte:** continue com `emiteDCe: true` e os itens. Nos casos de dispensa (documentos em papel, remessa
-   internacional com DSI/DIR, bens com documento de órgão público, amostras biológicas), a remessa segue com o
-   documento exigido.
+   `etiquetas()->danfeSimplificada()`). Informe também os itens: em homologação (02/11/2026) a API passou a recusar a
+   pré-postagem só com a chave (`PPN-347: É obrigatório informar Declaração de Conteúdo.`).
+3. **Remessa dispensada da DC-e (contribuinte ou não):** documentos em papel e os demais casos do Ajuste SINIEF
+   nº 35/2026 vão com o adicional 082 e os itens da declaração, sem `emiteDCe` e sem chave:
+
+   ```php
+   $nova = new NovaPrePostagem(
+       destinatario: $destinatario,
+       servico: 'sedex',
+       volume: $volume,
+       itens: [new Item('Contrato assinado', 1, 100)],
+       adicionais: [ServicoAdicional::isentoDocFiscal()],   // 082, com tipo e nome
+   );
+   ```
+
+   O componente recusa o 082 junto com `emiteDCe` ou sem itens (`ErroValidacao`). A dispensa é responsabilidade do
+   remetente: o código não substitui a NF-e e a aceitação pelos Correios não é uma validação fiscal. Se a aplicação
+   montar os adicionais a partir de `preco()->servicosAdicionais()`, o 082 vem com a sigla `IDFI`
+   (`CategoriaServicoAdicional::IsentoDocFiscal`).
+4. **Não contribuinte:** continue com `emiteDCe: true` e os itens, a não ser que a remessa seja dispensada (item 3).
 5. **Logística reversa:** o remetente é o cliente que devolve. Se ele for uma empresa contribuinte, a devolução de
    mercadoria também precisa de NF-e em vez de `emiteDCe`.
 6. **Trate a Rejeição 812** nos pontos em que ela pode aparecer:
@@ -745,8 +761,12 @@ Pontos não testados, instáveis ou observados de forma diferente da especifica�
   conhecidos; por isso o tipo também é identificado pelos bytes. A lista de objetos vai em parâmetros repetidos
   (`objetos=A&objetos=B`), que a API aceitou tanto quanto a forma separada por vírgula.
 - **Rejeição 812 (contribuinte do ICMS):** a verificação começa em 02/11/2026 e a resposta da API ainda não foi
-  observada; o componente reconhece a rejeição pelo texto. A API não tem campo para as dispensas do Ajuste SINIEF
-  nº 35/2026.
+  observada; o componente reconhece a rejeição pelo texto. As dispensas do Ajuste SINIEF nº 35/2026 vão no adicional
+  082 (Isento Doc Fiscal), que ainda não consta da especificação da API Pré-postagem (2.0.32) mas foi aceito em
+  homologação em 02/11/2026.
+- **Itens obrigatórios em homologação:** desde 02/11/2026 a homologação recusa pré-postagem sem itens da declaração
+  de conteúdo (`PPN-347`), mesmo com chave de NF-e ou com o 082. O componente ainda aceita só a chave ou só o número
+  da nota localmente, porque a especificação permite; não se sabe se a produção mudou.
 - **Endpoints HTML** de declaração de conteúdo e AR falham no servidor de homologação e não fazem parte do componente.
 - **Fora do escopo desta versão:** Webhook, autenticação por contrato ou só por usuário, agências, faturas, faixas de
   etiquetas, Pedido de Informação, serviços internacionais, lote de objetos simples, imagens de entrega (fotos de
